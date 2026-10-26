@@ -1,7 +1,7 @@
 // The hub is what gets linked on X every day: its preview must stay neutral, its list must be valid.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -35,7 +35,7 @@ test('the preview image is an absolute https URL and a large card', () => {
 });
 
 test('the page itself says Built with Omniscio', () => {
-  assert.match(html, /Built with Omniscio/);
+  assert.match(html.replace(/<[^>]+>/g, ''), /Built with Omniscio/);
 });
 
 test('tool cards are rendered as text, never as injected HTML', () => {
@@ -51,6 +51,10 @@ test('tools.json: one entry per challenge day, complete, https links, in day ord
     assert.ok(Number.isInteger(t.day) && t.day >= 1 && t.day <= CHALLENGE_DAYS, `day ${t.day} out of range`);
     assert.ok(t.name && t.blurb, `day ${t.day} needs a name and a blurb`);
     assert.match(t.url, /^https:\/\//, `day ${t.day} link must be https`);
+    if (t.shot !== undefined) {
+      assert.match(t.shot, /^shots\/[a-z0-9-]+\.png$/, `day ${t.day} shot must be a shots/*.png path`);
+      assert.ok(existsSync(join(DOCS, t.shot)), `day ${t.day} shot ${t.shot} is missing`);
+    }
   }
 });
 

@@ -15,72 +15,123 @@
 <meta name="twitter:title" content="Free marketing tools, one a day">
 <meta name="twitter:description" content="A free, one-page marketing tool every day for 10 days. No sign-up, works on your phone.">
 <meta name="twitter:image" content="https://dorianspitz23.github.io/free-marketing-tools/og.png">
-<link rel="icon" type="image/png" href="orb.png">
+<link rel="icon" type="image/svg+xml" href="mark.svg">
 <link rel="stylesheet" href="tokens.css">
 <style>
-  h1 { font-size: 1.9rem; line-height: 1.15; margin: 0 0 var(--space-1); }
-  .progress { font-weight: 700; color: var(--accent); margin: 0 0 var(--space-1); }
-  .tools { list-style: none; padding: 0; margin: var(--space-3) 0; display: grid; gap: var(--space-2); }
-  .tool { display: grid; gap: var(--space-1); }
-  .tool h2 { font-size: 1.15rem; margin: 0; }
-  .tool .day { font-size: .8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .tool .button { justify-self: start; margin-top: var(--space-1); }
-  .soon { border-style: dashed; color: var(--muted); }
-  footer { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); color: var(--muted); font-size: .9rem; }
-  footer img { width: 28px; height: 28px; }
-  #load-error { color: var(--bad); }
+  .page { max-width: 1180px; margin: 0 auto; padding: var(--space-5) var(--space-3); display: grid; gap: var(--space-5); }
+  @media (min-width: 960px) { .page { grid-template-columns: 340px 1fr; gap: 72px; } .brand { position: sticky; top: var(--space-5); align-self: start; } }
+
+  .brand .mark { display: flex; align-items: center; gap: var(--space-2); font-weight: 750; letter-spacing: -.01em; }
+  .brand .mark img { width: 40px; height: 40px; }
+  .brand h1 { font-size: clamp(2.1rem, 5vw, 2.7rem); line-height: 1.04; letter-spacing: -.035em; margin: var(--space-4) 0 var(--space-2); }
+  .brand h1 em { font-style: normal; color: var(--lime); }
+  .brand p { color: var(--muted); margin: 0 0 var(--space-4); max-width: 34ch; }
+  .progress-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-1); }
+  .progress-head b { font-size: 1.05rem; }
+  .segments { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+  .segments i { height: 8px; border-radius: 3px; background: var(--line); }
+  .segments i.on { background: var(--lime); }
+  .facts { list-style: none; padding: 0; margin: var(--space-4) 0; display: grid; gap: var(--space-1); color: var(--muted); font-size: .92rem; }
+  .facts li::before { content: "→ "; color: var(--lime); }
+
+  .grid { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); align-content: start; }
+  .slot { border-radius: var(--radius); min-height: 132px; }
+  .shipped { background: var(--panel); border: 1px solid var(--line); overflow: hidden; display: flex; flex-direction: column; transition: border-color .15s ease, transform .15s ease; }
+  .shipped:hover { border-color: var(--lime); transform: translateY(-2px); }
+  .shipped .shot { aspect-ratio: 16 / 10; background: var(--panel-2) top center / cover no-repeat; border-bottom: 1px solid var(--line); }
+  .shipped .body { padding: var(--space-3); display: grid; gap: var(--space-1); flex: 1; }
+  .shipped .meta { display: flex; justify-content: space-between; align-items: center; }
+  .shipped .new { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--lime-ink); background: var(--lime); padding: 5px 8px; border-radius: 999px; }
+  .shipped h2 { font-size: 1.2rem; margin: var(--space-1) 0 0; letter-spacing: -.01em; }
+  .shipped p { margin: 0; color: var(--muted); font-size: .92rem; }
+  .shipped .open { margin-top: var(--space-2); display: inline-flex; align-items: center; min-height: var(--tap); font-weight: 650; color: var(--lime); text-decoration: none; }
+  .locked { border: 1px dashed var(--line-strong); padding: var(--space-3); display: flex; flex-direction: column; justify-content: space-between; color: var(--faint); }
+  .locked .big { font: 800 2.6rem/1 var(--font); letter-spacing: -.04em; color: var(--line-strong); }
+  .locked.next { border-color: var(--faint); }
+  .locked.next .when { color: var(--muted); }
+  footer { margin-top: var(--space-4); }
+  #load-error { color: var(--coral); }
 </style>
 </head>
 <body>
-<main class="wrap">
-  <p class="progress" id="progress">Day 1 of 10</p>
-  <h1>Free marketing tools, one a day</h1>
-  <p class="muted">One new tool every day for 10 days. Each one does a single job well, needs no sign-up and works on your phone.</p>
+<div class="page">
+  <aside class="brand">
+    <div class="mark"><img src="mark.svg" alt="" width="40" height="40"><span>Free Marketing Tools</span></div>
+    <h1>A free marketing tool, <em>every day</em> for 10 days.</h1>
+    <p>Each one does a single job well. No sign-up, nothing stored, works on your phone.</p>
+    <div class="progress-head"><b id="progress">Day 1 of 10</b><span class="label" id="left">9 to go</span></div>
+    <div class="segments" id="segments" aria-hidden="true"></div>
+    <ul class="facts">
+      <li>For marketers and store owners</li>
+      <li>One new tool every morning</li>
+      <li>Free, forever</li>
+    </ul>
+    <footer>
+      <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
+    </footer>
+  </aside>
 
-  <ul class="tools" id="tools"></ul>
-  <p id="load-error" hidden>The tool list didn't load. Refresh the page to try again.</p>
-
-  <footer>
-    <img src="orb.png" alt="" width="28" height="28">
-    <span>Built with Omniscio</span>
-  </footer>
-</main>
+  <main>
+    <ul class="grid" id="tools"></ul>
+    <p id="load-error" hidden>The tool list didn't load. Refresh the page to try again.</p>
+  </main>
+</div>
 <template id="tool-card">
-  <li class="card tool">
-    <span class="day"></span>
-    <h2></h2>
-    <p class="muted blurb"></p>
-    <a class="button" target="_blank" rel="noopener">Open tool</a>
+  <li class="slot shipped">
+    <div class="shot"></div>
+    <div class="body">
+      <div class="meta"><span class="label day"></span><span class="new" hidden>New today</span></div>
+      <h2></h2>
+      <p class="blurb"></p>
+      <a class="open" target="_blank" rel="noopener">Open tool →</a>
+    </div>
   </li>
 </template>
 <script>
   (function () {
     'use strict';
     const CHALLENGE_DAYS = 10;
+    const pad = (n) => String(n).padStart(2, '0');
     const list = document.getElementById('tools');
     const template = document.getElementById('tool-card');
 
-    function card(tool) {
+    function card(tool, isLatest) {
       const node = template.content.firstElementChild.cloneNode(true);
-      node.querySelector('.day').textContent = `Day ${tool.day}`;
+      node.querySelector('.day').textContent = `Day ${pad(tool.day)}`;
       node.querySelector('h2').textContent = tool.name;
       node.querySelector('.blurb').textContent = tool.blurb;
-      node.querySelector('a').href = tool.url;
+      node.querySelector('.open').href = tool.url;
+      node.querySelector('.new').hidden = !isLatest;
+      if (tool.shot) node.querySelector('.shot').style.backgroundImage = `url("${encodeURI(tool.shot)}")`;
+      else node.querySelector('.shot').remove();
       return node;
     }
 
-    function comingSoon(day) {
+    function locked(day, isNext) {
       const node = document.createElement('li');
-      node.className = 'card soon';
-      node.textContent = `Day ${day}: coming tomorrow`;
+      node.className = isNext ? 'slot locked next' : 'slot locked';
+      const big = document.createElement('span');
+      big.className = 'big';
+      big.textContent = pad(day);
+      const when = document.createElement('span');
+      when.className = 'label when';
+      when.textContent = isNext ? 'Unlocks tomorrow' : 'Locked';
+      node.append(big, when);
       return node;
     }
 
     function render(tools) {
+      const byDay = new Map(tools.map((t) => [t.day, t]));
       const latest = tools.reduce((max, t) => Math.max(max, t.day), 0);
       document.getElementById('progress').textContent = `Day ${latest} of ${CHALLENGE_DAYS}`;
-      [...tools].reverse().forEach((t) => list.appendChild(card(t)));
-      if (latest < CHALLENGE_DAYS) list.prepend(comingSoon(latest + 1));
+      document.getElementById('left').textContent = latest >= CHALLENGE_DAYS ? 'Complete' : `${CHALLENGE_DAYS - latest} to go`;
+      const segments = document.getElementById('segments');
+      for (let day = 1; day <= CHALLENGE_DAYS; day++) {
+        const seg = document.createElement('i');
+        if (byDay.has(day)) seg.className = 'on';
+        segments.appendChild(seg);
+        list.appendChild(byDay.has(day) ? card(byDay.get(day), day === latest) : locked(day, day === latest + 1));
+      }
     }
 
     fetch('tools.json', { cache: 'no-cache' })

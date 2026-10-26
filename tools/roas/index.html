@@ -4,92 +4,127 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Break-even ROAS calculator</title>
-<meta name="description" content="Find the lowest ROAS where your ads stop losing money, including fees, shipping and returns.">
+<meta name="description" content="Find the lowest ROAS where your ads stop losing money, with fees, shipping and returns counted.">
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../shared/tokens.css">
 <style>
-  h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 var(--space-1); }
-  .lede { margin: 0 0 var(--space-3); }
-  fieldset { border: 0; margin: 0 0 var(--space-3); padding: 0; }
-  legend { font-weight: 700; margin-bottom: var(--space-2); }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
-  label { display: block; font-size: .9rem; font-weight: 600; }
-  .hint { display: block; font-size: .8rem; font-weight: 400; color: var(--muted); }
-  input {
-    width: 100%; min-height: var(--tap); margin-top: var(--space-1); padding: 0 var(--space-2);
-    font: inherit; color: var(--text); background: var(--bg);
-    border: 1px solid var(--border); border-radius: 10px;
+  .tool { max-width: 1080px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-5); }
+  .top { margin-bottom: var(--space-4); }
+  .top h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.02; margin: var(--space-2) 0 var(--space-2); letter-spacing: -.035em; }
+  .top h1 span { color: var(--lime); }
+  .top p { margin: 0; max-width: 46ch; color: var(--muted); }
+  .layout { display: grid; gap: var(--space-3); grid-template-areas: "hero" "inputs" "math"; }
+  @media (min-width: 900px) {
+    .layout { grid-template-columns: 1.05fr .95fr; grid-template-areas: "inputs hero" "math hero"; align-items: start; }
+    .hero { position: sticky; top: var(--space-3); }
   }
-  input[aria-invalid="true"] { border-color: var(--bad); }
-  .error { color: var(--bad); font-size: .8rem; min-height: 1em; display: block; }
-  .results { margin-bottom: var(--space-3); }
-  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin: var(--space-2) 0; }
-  .stat { border: 1px solid var(--border); border-radius: 12px; padding: var(--space-2); }
-  .stat b { display: block; font-size: 1.35rem; line-height: 1.2; }
-  .stat span { font-size: .85rem; color: var(--muted); }
-  .verdict { font-size: 1.05rem; margin: var(--space-2) 0 0; }
-  .verdict.loss { color: var(--bad); font-weight: 600; }
-  .math { margin-top: var(--space-3); font-size: .9rem; }
-  .math code { font-size: .85rem; }
-  .made { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); color: var(--muted); font-size: .9rem; }
-  .made img { width: 28px; height: 28px; }
-  @media (max-width: 340px) { .grid, .stats { grid-template-columns: 1fr; } }
+
+  /* Result */
+  .hero { grid-area: hero; padding: var(--space-4) var(--space-3) var(--space-3); overflow: hidden; position: relative; }
+  .hero::before { content: ""; position: absolute; inset: -40% -20% auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(var(--lime-soft), transparent 70%); pointer-events: none; }
+  .hero[data-state="loss"]::before { background: radial-gradient(var(--coral-soft), transparent 70%); }
+  .hero .row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 7px 10px; border-radius: 999px; color: var(--lime-ink); background: var(--lime); white-space: nowrap; }
+  .hero[data-state="loss"] .chip { background: var(--coral); color: #1a0705; }
+  .big { font-size: clamp(4rem, 15vw, 6.2rem); font-weight: 800; line-height: .95; margin: var(--space-2) 0 var(--space-1); color: var(--lime); }
+  .hero[data-state="loss"] .big { color: var(--coral); }
+  .pct { color: var(--muted); font-size: 1rem; min-height: 1.5em; }
+  .gauge { margin: var(--space-3) 0 var(--space-1); position: relative; height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--coral) 0%, var(--coral) var(--be, 40%), var(--lime) var(--be, 40%), var(--lime) 100%); opacity: .9; }
+  .mark { position: absolute; top: -6px; width: 3px; height: 22px; border-radius: 2px; background: var(--text); transform: translateX(-50%); transition: left .25s ease; }
+  .mark.target { background: var(--lime); box-shadow: 0 0 0 2px var(--panel); }
+  .gauge-key { display: flex; justify-content: space-between; font: 500 12px/1.4 var(--mono); color: var(--faint); }
+  .hero[data-state="loss"] .gauge-key { visibility: hidden; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin-top: var(--space-3); }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: var(--space-2); min-width: 0; }
+  .tile b { display: block; font-size: 1.45rem; font-weight: 750; margin-top: 4px; }
+  .tile small { display: block; color: var(--faint); font-size: .78rem; margin-top: 2px; }
+  .verdict { margin: var(--space-3) 0 0; color: var(--text); font-size: 1rem; line-height: 1.5; }
+  .hero[data-state="loss"] .verdict { color: var(--coral); font-weight: 600; }
+
+  /* Inputs */
+  form { grid-area: inputs; display: grid; gap: var(--space-2); }
+  fieldset { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); }
+  legend { padding: 0 6px; margin-left: -6px; }
+  .field { display: grid; grid-template-columns: 1fr minmax(120px, 42%); align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-top: 1px solid var(--line); }
+  legend + .field, .field:first-of-type { border-top: 0; }
+  .field label { font-weight: 600; font-size: .95rem; }
+  .field label small { display: block; font-weight: 400; color: var(--faint); font-size: .8rem; margin-top: 2px; }
+  .box { position: relative; }
+  .box input {
+    width: 100%; min-height: var(--tap); padding: 0 40px 0 14px;
+    font: 600 1.05rem var(--font); color: var(--text); text-align: right; font-variant-numeric: tabular-nums;
+    background: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    transition: border-color .15s ease;
+  }
+  .box input:hover { border-color: var(--faint); }
+  .box input:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px var(--lime-soft); }
+  .box input[aria-invalid="true"] { border-color: var(--coral); }
+  .box .unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--faint); font: 600 .85rem var(--mono); pointer-events: none; }
+  .error { grid-column: 1 / -1; color: var(--coral); font-size: .8rem; }
+  .error:empty { display: none; }
+
+  .math { grid-area: math; color: var(--muted); font-size: .88rem; line-height: 1.6; padding: var(--space-3); }
+  .math p { margin: 0 0 var(--space-2); }
+  .math b { color: var(--text); }
+  footer { margin-top: var(--space-4); }
+  @media (max-width: 380px) { .tiles { grid-template-columns: 1fr 1fr; } .field { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-<main class="wrap">
-  <h1>Break-even ROAS calculator</h1>
-  <p class="lede muted">Find the lowest ROAS where your ads stop losing money, with fees, shipping and returns counted. Use any currency.</p>
+<main class="tool">
+  <header class="top">
+    <span class="label">Free tool · Day 1 of 10</span>
+    <h1>Break-even <span>ROAS</span> calculator</h1>
+    <p>The lowest ROAS where your ads stop losing money, with discounts, payment fees, shipping and returns counted. Any currency.</p>
+  </header>
 
-  <section class="card results" aria-live="polite">
-    <div class="stats">
-      <div class="stat"><span>Break-even ROAS</span><b id="out-roas">–</b><span id="out-roas-pct"></span></div>
-      <div class="stat"><span>Break-even CPA</span><b id="out-cpa">–</b><span>max ad cost per order</span></div>
-      <div class="stat"><span>Target ROAS for your profit goal</span><b id="out-target">–</b><span id="out-target-pct"></span></div>
-      <div class="stat"><span>Profit per order before ads</span><b id="out-contribution">–</b><span>after costs and returns</span></div>
-    </div>
-    <p class="verdict" id="out-verdict"></p>
-  </section>
-
-  <form class="card" id="calc" novalidate>
-    <fieldset>
-      <legend>The order</legend>
-      <div class="grid">
-        <label>Average order value<span class="hint">Before any discount</span><input id="orderValue" inputmode="decimal" value="50"><span class="error" id="orderValue-error"></span></label>
-        <label>Average discount %<span class="hint">Codes, sales, bundles</span><input id="discountPct" inputmode="decimal" value="0"><span class="error" id="discountPct-error"></span></label>
+  <div class="layout">
+    <section class="hero panel" id="hero" data-state="profitable" aria-live="polite">
+      <div class="row">
+        <span class="label">Break-even ROAS</span>
+        <span class="chip" id="out-chip">Profitable</span>
       </div>
-    </fieldset>
-    <fieldset>
-      <legend>Your costs per order</legend>
-      <div class="grid">
-        <label>Product cost<span class="hint">What the goods cost you</span><input id="productCost" inputmode="decimal" value="15"><span class="error" id="productCost-error"></span></label>
-        <label>Shipping you pay<span class="hint">Outbound, per order</span><input id="shippingCost" inputmode="decimal" value="5"><span class="error" id="shippingCost-error"></span></label>
-        <label>Payment fee %<span class="hint">e.g. 2.9 for Stripe or Shopify</span><input id="feePct" inputmode="decimal" value="2.9"><span class="error" id="feePct-error"></span></label>
-        <label>Fixed fee per order<span class="hint">e.g. 0.30</span><input id="feeFixed" inputmode="decimal" value="0.30"><span class="error" id="feeFixed-error"></span></label>
+      <div class="big num" id="out-roas">–</div>
+      <div class="pct" id="out-roas-pct"></div>
+      <div class="gauge" id="gauge"><span class="mark" id="mark-be"></span><span class="mark target" id="mark-target"></span></div>
+      <div class="gauge-key"><span>loses money</span><span id="gauge-label">target</span><span>profit</span></div>
+      <div class="tiles">
+        <div class="tile"><span class="label">Max CPA</span><b class="num" id="out-cpa">–</b><small>ad cost per order</small></div>
+        <div class="tile"><span class="label">Target ROAS</span><b class="num" id="out-target">–</b><small id="out-target-pct">for your profit goal</small></div>
+        <div class="tile"><span class="label">Profit / order</span><b class="num" id="out-contribution">–</b><small>before ads</small></div>
       </div>
-    </fieldset>
-    <fieldset>
-      <legend>Returns</legend>
-      <div class="grid">
-        <label>Return rate %<span class="hint">Share of orders sent back</span><input id="returnRatePct" inputmode="decimal" value="0"><span class="error" id="returnRatePct-error"></span></label>
-        <label>Cost per return<span class="hint">Return label and handling</span><input id="returnCost" inputmode="decimal" value="0"><span class="error" id="returnCost-error"></span></label>
-      </div>
-    </fieldset>
-    <fieldset>
-      <legend>Your goal</legend>
-      <label>Profit you want to keep after ads, as % of revenue<input id="targetMarginPct" inputmode="decimal" value="10"><span class="error" id="targetMarginPct-error"></span></label>
-    </fieldset>
-  </form>
+      <p class="verdict" id="out-verdict"></p>
+    </section>
 
+    <form id="calc" novalidate>
+      <fieldset>
+        <legend class="label">The order</legend>
+        <div class="field"><label for="orderValue">Average order value<small>Before discounts</small></label><div class="box"><input id="orderValue" inputmode="decimal" value="50"></div><span class="error" id="orderValue-error"></span></div>
+        <div class="field"><label for="discountPct">Average discount<small>Codes, sales, bundles</small></label><div class="box"><input id="discountPct" inputmode="decimal" value="0"><span class="unit">%</span></div><span class="error" id="discountPct-error"></span></div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">Costs per order</legend>
+        <div class="field"><label for="productCost">Product cost<small>What the goods cost you</small></label><div class="box"><input id="productCost" inputmode="decimal" value="15"></div><span class="error" id="productCost-error"></span></div>
+        <div class="field"><label for="shippingCost">Shipping you pay<small>Outbound, per order</small></label><div class="box"><input id="shippingCost" inputmode="decimal" value="5"></div><span class="error" id="shippingCost-error"></span></div>
+        <div class="field"><label for="feePct">Payment fee<small>Stripe and Shopify are about 2.9%</small></label><div class="box"><input id="feePct" inputmode="decimal" value="2.9"><span class="unit">%</span></div><span class="error" id="feePct-error"></span></div>
+        <div class="field"><label for="feeFixed">Fixed fee per order<small>Usually around 0.30</small></label><div class="box"><input id="feeFixed" inputmode="decimal" value="0.30"></div><span class="error" id="feeFixed-error"></span></div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">Returns and goal</legend>
+        <div class="field"><label for="returnRatePct">Return rate<small>Share of orders sent back</small></label><div class="box"><input id="returnRatePct" inputmode="decimal" value="0"><span class="unit">%</span></div><span class="error" id="returnRatePct-error"></span></div>
+        <div class="field"><label for="returnCost">Cost per return<small>Label and handling</small></label><div class="box"><input id="returnCost" inputmode="decimal" value="0"></div><span class="error" id="returnCost-error"></span></div>
+        <div class="field"><label for="targetMarginPct">Profit to keep after ads<small>As a share of revenue</small></label><div class="box"><input id="targetMarginPct" inputmode="decimal" value="10"><span class="unit">%</span></div><span class="error" id="targetMarginPct-error"></span></div>
+      </fieldset>
+    </form>
 
-  <section class="math muted">
-    <p><b>How the maths works.</b> Price = order value minus discount. Profit per order before ads = (1 − return rate) × (price − product cost) − shipping − payment fee − return rate × cost per return. Returned orders are refunded in full and go back on the shelf; you keep paying the shipping, the fee and the return label.</p>
-    <p>Break-even ROAS = price ÷ profit per order. Target ROAS = price ÷ (profit per order − your profit goal × price). In Google Ads, enter the target as a percentage (3.5× = 350%). If your conversion value includes tax or shipping, your real target is a little higher.</p>
-  </section>
+    <section class="math panel">
+      <p><b>How the maths works.</b> Price = order value minus discount. Profit per order before ads = (1 − return rate) × (price − product cost) − shipping − payment fee − return rate × cost per return. Returned orders are refunded in full and go back on the shelf; you still pay the shipping, the fee and the return label.</p>
+      <p>Break-even ROAS = price ÷ profit per order. Target ROAS = price ÷ (profit per order − profit goal × price). In Google Ads, enter the target as a percentage (3.5× = 350%). If your conversion value includes tax or shipping, aim a little higher.</p>
+    </section>
+  </div>
 
-  <footer class="made">
-    <img src="../../docs/orb.png" alt="" width="28" height="28">
-    <span>Built with <a href="https://omniscio.com" target="_blank" rel="noopener">Omniscio</a></span>
+  <footer>
+    <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="../../docs/orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
   </footer>
 </main>
 <script src="calc.js"></script>
@@ -97,13 +132,17 @@
   (function () {
     'use strict';
     const { FIELDS, readInputs, computeBreakEven } = window.RoasCalc;
+    const GAUGE_HEADROOM = 1.3;
+    const GAUGE_MIN = 3;
     const MESSAGES = {
       notANumber: 'Enter a number',
       negative: 'Can’t be negative',
       overHundred: 'Must be 100 or less',
+      profitable: 'Profitable',
+      lossChip: 'Losing money',
       loss: 'You lose money on every order before spending anything on ads. Fix the price or the costs first.',
       unreachable: 'Your profit goal isn’t reachable at this price, even with zero ad spend.',
-      profitable: (roas, cpa) => `To break even, each 1 you spend on ads must bring back ${roas} in sales, and one order can cost at most ${cpa} in ads.`
+      breakEven: (roas, cpa) => `Each 1 you spend on ads has to bring back ${roas} in sales to break even, so one order can cost at most ${cpa} in ads.`
     };
     const number = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const $ = (id) => document.getElementById(id);
@@ -117,19 +156,35 @@
       }
     }
 
+    function placeGauge(r) {
+      const top = Math.max(GAUGE_MIN, (r.targetRoas || r.breakEvenRoas) * GAUGE_HEADROOM);
+      const at = (x) => `${Math.min(100, (x / top) * 100)}%`;
+      $('gauge').style.setProperty('--be', at(r.breakEvenRoas));
+      $('mark-be').style.left = at(r.breakEvenRoas);
+      $('mark-target').hidden = !r.targetReachable;
+      if (r.targetReachable) $('mark-target').style.left = at(r.targetRoas);
+      $('gauge-label').textContent = r.targetReachable ? `target ${asRoas(r.targetRoas)}` : 'target out of reach';
+    }
+
+    function verdictText(r) {
+      if (r.status !== 'profitable') return MESSAGES.loss;
+      const line = MESSAGES.breakEven(asRoas(r.breakEvenRoas), number.format(r.breakEvenCpa));
+      return r.targetReachable ? line : `${line} ${MESSAGES.unreachable}`;
+    }
+
     function showResult(r) {
       const ok = r.status === 'profitable';
-      $('out-contribution').textContent = number.format(r.contribution);
+      $('hero').dataset.state = ok ? 'profitable' : 'loss';
+      $('out-chip').textContent = ok ? MESSAGES.profitable : MESSAGES.lossChip;
       $('out-roas').textContent = ok ? asRoas(r.breakEvenRoas) : '–';
       $('out-roas-pct').textContent = ok ? asPct(r.breakEvenRoas) : '';
       $('out-cpa').textContent = ok ? number.format(r.breakEvenCpa) : '–';
       $('out-target').textContent = r.targetReachable ? asRoas(r.targetRoas) : '–';
-      $('out-target-pct').textContent = r.targetReachable ? asPct(r.targetRoas) : '';
-      const verdict = $('out-verdict');
-      verdict.className = ok ? 'verdict' : 'verdict loss';
-      if (!ok) verdict.textContent = MESSAGES.loss;
-      else if (!r.targetReachable) verdict.textContent = `${MESSAGES.profitable(asRoas(r.breakEvenRoas), number.format(r.breakEvenCpa))} ${MESSAGES.unreachable}`;
-      else verdict.textContent = MESSAGES.profitable(asRoas(r.breakEvenRoas), number.format(r.breakEvenCpa));
+      $('out-target-pct').textContent = r.targetReachable ? asPct(r.targetRoas) : 'out of reach';
+      $('out-contribution').textContent = number.format(r.contribution);
+      $('out-verdict').textContent = verdictText(r);
+      $('gauge').hidden = !ok;
+      if (ok) placeGauge(r);
     }
 
     function update() {
