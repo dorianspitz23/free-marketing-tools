@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Break-even ROAS calculator</title>
 <meta name="description" content="Find the lowest ROAS where your ads stop losing money, including fees, shipping and returns.">
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../shared/tokens.css">
 <style>
   h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 var(--space-1); }
@@ -21,22 +22,32 @@
   }
   input[aria-invalid="true"] { border-color: var(--bad); }
   .error { color: var(--bad); font-size: .8rem; min-height: 1em; display: block; }
-  .results { margin-top: var(--space-3); }
+  .results { margin-bottom: var(--space-3); }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin: var(--space-2) 0; }
   .stat { border: 1px solid var(--border); border-radius: 12px; padding: var(--space-2); }
-  .stat b { display: block; font-size: 1.5rem; line-height: 1.2; }
+  .stat b { display: block; font-size: 1.35rem; line-height: 1.2; }
   .stat span { font-size: .85rem; color: var(--muted); }
   .verdict { font-size: 1.05rem; margin: var(--space-2) 0 0; }
   .verdict.loss { color: var(--bad); font-weight: 600; }
   .math { margin-top: var(--space-3); font-size: .9rem; }
   .math code { font-size: .85rem; }
-  @media (max-width: 420px) { .grid, .stats { grid-template-columns: 1fr; } }
+  @media (max-width: 340px) { .grid, .stats { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <main class="wrap">
   <h1>Break-even ROAS calculator</h1>
   <p class="lede muted">Find the lowest ROAS where your ads stop losing money, with fees, shipping and returns counted. Use any currency.</p>
+
+  <section class="card results" aria-live="polite">
+    <div class="stats">
+      <div class="stat"><span>Break-even ROAS</span><b id="out-roas">–</b><span id="out-roas-pct"></span></div>
+      <div class="stat"><span>Break-even CPA</span><b id="out-cpa">–</b><span>max ad cost per order</span></div>
+      <div class="stat"><span>Target ROAS for your profit goal</span><b id="out-target">–</b><span id="out-target-pct"></span></div>
+      <div class="stat"><span>Profit per order before ads</span><b id="out-contribution">–</b><span>after costs and returns</span></div>
+    </div>
+    <p class="verdict" id="out-verdict"></p>
+  </section>
 
   <form class="card" id="calc" novalidate>
     <fieldset>
@@ -68,15 +79,6 @@
     </fieldset>
   </form>
 
-  <section class="card results" aria-live="polite">
-    <div class="stats">
-      <div class="stat"><span>Break-even ROAS</span><b id="out-roas">–</b><span id="out-roas-pct"></span></div>
-      <div class="stat"><span>Break-even CPA</span><b id="out-cpa">–</b><span>max ad cost per order</span></div>
-      <div class="stat"><span>Target ROAS for your profit goal</span><b id="out-target">–</b><span id="out-target-pct"></span></div>
-      <div class="stat"><span>Profit per order before ads</span><b id="out-contribution">–</b><span>after costs and returns</span></div>
-    </div>
-    <p class="verdict" id="out-verdict"></p>
-  </section>
 
   <section class="math muted">
     <p><b>How the maths works.</b> Price = order value minus discount. Profit per order before ads = (1 − return rate) × (price − product cost) − shipping − payment fee − return rate × cost per return. Returned orders are refunded in full and go back on the shelf; you keep paying the shipping, the fee and the return label.</p>
