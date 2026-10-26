@@ -1,0 +1,10 @@
+{
+  "name": "free-marketing-tools",
+  "private": true,
+  "description": "Free one-page marketing tools, one a day, with a hub page on GitHub Pages.",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs",
+    "check:ui": "node scripts/check-ui.cjs"
+  }
+}
