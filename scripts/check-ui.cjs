@@ -10,7 +10,8 @@ const ROOT = path.join(__dirname, '..');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const SHARE_CSP = 'sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads';
 const VIEWPORTS = [{ width: 390, height: 844, isMobile: true }, { width: 1280, height: 800, isMobile: false }];
-const TYPES = { '.html': 'text/html', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png' };
+const CHALLENGE_DAYS = 10;
+const TYPES = { '.html': 'text/html', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
 function serve() {
   return http.createServer((req, res) => {
@@ -50,8 +51,10 @@ async function checkTool(page) {
 
 async function checkHub(page) {
   const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'tools.json'), 'utf8')).length;
-  const cards = await page.locator('.tool').count();
-  return cards === expected ? null : `hub shows ${cards} tool cards, tools.json has ${expected}`;
+  const shipped = await page.locator('.slot.shipped').count();
+  const slots = await page.locator('.slot').count();
+  if (slots !== CHALLENGE_DAYS) return `hub shows ${slots} day slots, expected ${CHALLENGE_DAYS}`;
+  return shipped === expected ? null : `hub shows ${shipped} shipped cards, tools.json has ${expected}`;
 }
 
 (async () => {

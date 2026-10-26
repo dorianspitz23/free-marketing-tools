@@ -13,12 +13,12 @@ test('the bundled ROAS tool has no external stylesheet or script references', ()
   assert.doesNotMatch(html, /<link[^>]+stylesheet/i, 'stylesheet still linked');
   assert.doesNotMatch(html, /<script[^>]+src=/i, 'script still linked');
   assert.match(html, /computeBreakEven/, 'calc.js was inlined');
-  assert.match(html, /--accent:/, 'tokens.css was inlined');
+  assert.match(html, /--lime:/, 'tokens.css was inlined');
   assert.doesNotMatch(html, /<img[^>]+src="(?!data:)/i, 'an image still points at a file');
 });
 
 test('every tool says Built with Omniscio, since a Share may not show its own badge', () => {
-  assert.match(inlineTool('roas'), /Built with <a href="https:\/\/omniscio\.com"/);
+  assert.match(inlineTool('roas'), /href="https:\/\/omniscio\.com"[\s\S]*?Built with <b>Omniscio<\/b>/);
 });
 
 test('the hub serves the same look as the tools (docs/tokens.css matches shared/tokens.css)', () => {
