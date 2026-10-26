@@ -31,6 +31,8 @@
   .verdict.loss { color: var(--bad); font-weight: 600; }
   .math { margin-top: var(--space-3); font-size: .9rem; }
   .math code { font-size: .85rem; }
+  .made { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); color: var(--muted); font-size: .9rem; }
+  .made img { width: 28px; height: 28px; }
   @media (max-width: 340px) { .grid, .stats { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -84,6 +86,11 @@
     <p><b>How the maths works.</b> Price = order value minus discount. Profit per order before ads = (1 − return rate) × (price − product cost) − shipping − payment fee − return rate × cost per return. Returned orders are refunded in full and go back on the shelf; you keep paying the shipping, the fee and the return label.</p>
     <p>Break-even ROAS = price ÷ profit per order. Target ROAS = price ÷ (profit per order − your profit goal × price). In Google Ads, enter the target as a percentage (3.5× = 350%). If your conversion value includes tax or shipping, your real target is a little higher.</p>
   </section>
+
+  <footer class="made">
+    <img src="../../docs/orb.png" alt="" width="28" height="28">
+    <span>Built with <a href="https://omniscio.com" target="_blank" rel="noopener">Omniscio</a></span>
+  </footer>
 </main>
 <script src="calc.js"></script>
 <script>

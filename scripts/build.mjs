@@ -8,8 +8,11 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TOOLS = ['roas'];
 const TOKENS = join(ROOT, 'shared', 'tokens.css');
 
+const ORB = join(ROOT, 'docs', 'orb.png');
+
 const STYLESHEET_TAG = '<link rel="stylesheet" href="../../shared/tokens.css">';
 const SCRIPT_TAG = '<script src="calc.js"></script>';
+const ORB_SRC = 'src="../../docs/orb.png"';
 
 function replaceOnce(html, tag, replacement, tool) {
   if (!html.includes(tag)) throw new Error(`${tool}/index.html is missing ${tag}`);
@@ -21,6 +24,7 @@ export function inlineTool(tool) {
   let html = readFileSync(join(dir, 'index.html'), 'utf8');
   html = replaceOnce(html, STYLESHEET_TAG, `<style>\n${readFileSync(TOKENS, 'utf8')}</style>`, tool);
   html = replaceOnce(html, SCRIPT_TAG, `<script>\n${readFileSync(join(dir, 'calc.js'), 'utf8')}</script>`, tool);
+  html = replaceOnce(html, ORB_SRC, `src="data:image/png;base64,${readFileSync(ORB).toString('base64')}"`, tool);
   return html;
 }
 
