@@ -24,7 +24,7 @@ ship.
 - **Day 1 — Break-even ROAS calculator.** The lowest ROAS where your ads stop losing money, with
   discounts, payment fees, shipping and returns counted, plus the target ROAS (as a Google Ads %) for
   the profit you want to keep.
-- **The hub.** A day counter, one card per tool, and a neutral link preview for posting on X.
+- **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A neutral link preview for posting on X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.
 - **No accounts, no tracking, nothing stored.** Each tool runs entirely in the browser.
 
@@ -34,7 +34,7 @@ ship.
 | --- | --- | --- |
 | Tools | One HTML file each, vanilla JS | An Omniscio Share hosts a single file and blocks outside requests |
 | Hub | Static HTML + `tools.json` on GitHub Pages | Adding a day is one list entry |
-| Look | `shared/tokens.css`, light and dark | One design across the hub and every tool |
+| Look | `shared/tokens.css`: dark ink, acid-lime accent, coral for losses | One design across the hub and every tool |
 | Tests | `node --test` | No dependencies to install |
 | Page checks | Playwright + local Chrome | Phone and desktop, under the Share's sandbox rules |
 
@@ -43,7 +43,9 @@ ship.
 ```
 docs/                 the hub, served by GitHub Pages
   index.html          renders tools.json; link-preview tags stay Omniscio-free
-  tools.json          one entry per day: day, name, blurb, url
+  tools.json          one entry per day: day, name, blurb, url, shot
+  shots/<tool>.png    card thumbnails (written by render-shots.cjs)
+  mark.svg            the brand mark
   og.png              the 1200x630 link-preview image
   tokens.css          copy of shared/tokens.css (written by the build)
 shared/tokens.css     the one design-token file
@@ -52,6 +54,7 @@ scripts/
   build.mjs           inlines each tool into dist/<tool>.html and refreshes docs/tokens.css
   check-ui.cjs        phone/desktop checks for the tool and the hub
   render-og.cjs       regenerates docs/og.png from og-card.html
+  render-shots.cjs    renders each dist/<tool>.html into docs/shots/<tool>.png
 tests/hub.test.mjs    hub rules: neutral preview, valid tools.json, Built with Omniscio
 ```
 
@@ -71,9 +74,9 @@ npm run check:ui      # phone + desktop checks (needs Playwright + Chrome)
 1. Build it in `tools/<name>/`: an `index.html` that links `../../shared/tokens.css`, loads its logic
    from `calc.js`, and keeps the Built with Omniscio footer (copy the ROAS tool's), with tests beside it.
    Add the name to `TOOLS` in `scripts/build.mjs`.
-2. `npm run build`, then `npm run check:ui`.
+2. `npm run build`, then `node scripts/render-shots.cjs` for the card thumbnail, then `npm run check:ui`.
 3. Publish `dist/<name>.html` as an Omniscio Share that never expires.
-4. Add one entry to `docs/tools.json` (`day`, `name`, `blurb`, `url`) and push. The hub updates itself.
+4. Add one entry to `docs/tools.json` (`day`, `name`, `blurb`, `url`, `shot: "shots/<name>.png"`) and push. The hub fills that day's slot itself.
 
 ### Regenerating the preview image
 
