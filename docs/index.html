@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free marketing tools, one a day</title>
+<meta name="description" content="A free, one-page marketing tool every day for 10 days. No sign-up, works on your phone.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Free marketing tools">
+<meta property="og:title" content="Free marketing tools, one a day">
+<meta property="og:description" content="A free, one-page marketing tool every day for 10 days. No sign-up, works on your phone.">
+<meta property="og:url" content="https://dorianspitz23.github.io/free-marketing-tools/">
+<meta property="og:image" content="https://dorianspitz23.github.io/free-marketing-tools/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free marketing tools, one a day">
+<meta name="twitter:description" content="A free, one-page marketing tool every day for 10 days. No sign-up, works on your phone.">
+<meta name="twitter:image" content="https://dorianspitz23.github.io/free-marketing-tools/og.png">
+<link rel="icon" type="image/png" href="orb.png">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  h1 { font-size: 1.9rem; line-height: 1.15; margin: 0 0 var(--space-1); }
+  .progress { font-weight: 700; color: var(--accent); margin: 0 0 var(--space-1); }
+  .tools { list-style: none; padding: 0; margin: var(--space-3) 0; display: grid; gap: var(--space-2); }
+  .tool { display: grid; gap: var(--space-1); }
+  .tool h2 { font-size: 1.15rem; margin: 0; }
+  .tool .day { font-size: .8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .tool .button { justify-self: start; margin-top: var(--space-1); }
+  .soon { border-style: dashed; color: var(--muted); }
+  footer { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); color: var(--muted); font-size: .9rem; }
+  footer img { width: 28px; height: 28px; }
+  #load-error { color: var(--bad); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="progress" id="progress">Day 1 of 10</p>
+  <h1>Free marketing tools, one a day</h1>
+  <p class="muted">One new tool every day for 10 days. Each one does a single job well, needs no sign-up and works on your phone.</p>
+
+  <ul class="tools" id="tools"></ul>
+  <p id="load-error" hidden>The tool list didn't load. Refresh the page to try again.</p>
+
+  <footer>
+    <img src="orb.png" alt="" width="28" height="28">
+    <span>Built with Omniscio</span>
+  </footer>
+</main>
+<template id="tool-card">
+  <li class="card tool">
+    <span class="day"></span>
+    <h2></h2>
+    <p class="muted blurb"></p>
+    <a class="button" target="_blank" rel="noopener">Open tool</a>
+  </li>
+</template>
+<script>
+  (function () {
+    'use strict';
+    const CHALLENGE_DAYS = 10;
+    const list = document.getElementById('tools');
+    const template = document.getElementById('tool-card');
+
+    function card(tool) {
+      const node = template.content.firstElementChild.cloneNode(true);
+      node.querySelector('.day').textContent = `Day ${tool.day}`;
+      node.querySelector('h2').textContent = tool.name;
+      node.querySelector('.blurb').textContent = tool.blurb;
+      node.querySelector('a').href = tool.url;
+      return node;
+    }
+
+    function comingSoon(day) {
+      const node = document.createElement('li');
+      node.className = 'card soon';
+      node.textContent = `Day ${day}: coming tomorrow`;
+      return node;
+    }
+
+    function render(tools) {
+      const latest = tools.reduce((max, t) => Math.max(max, t.day), 0);
+      document.getElementById('progress').textContent = `Day ${latest} of ${CHALLENGE_DAYS}`;
+      [...tools].reverse().forEach((t) => list.appendChild(card(t)));
+      if (latest < CHALLENGE_DAYS) list.prepend(comingSoon(latest + 1));
+    }
+
+    fetch('tools.json', { cache: 'no-cache' })
+      .then((res) => { if (!res.ok) throw new Error(res.status); return res.json(); })
+      .then(render)
+      .catch(() => { document.getElementById('load-error').hidden = false; });
+  })();
+</script>
+</body>
+</html>

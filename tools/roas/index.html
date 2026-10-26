@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Break-even ROAS calculator</title>
+<meta name="description" content="Find the lowest ROAS where your ads stop losing money, including fees, shipping and returns.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 var(--space-1); }
+  .lede { margin: 0 0 var(--space-3); }
+  fieldset { border: 0; margin: 0 0 var(--space-3); padding: 0; }
+  legend { font-weight: 700; margin-bottom: var(--space-2); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  label { display: block; font-size: .9rem; font-weight: 600; }
+  .hint { display: block; font-size: .8rem; font-weight: 400; color: var(--muted); }
+  input {
+    width: 100%; min-height: var(--tap); margin-top: var(--space-1); padding: 0 var(--space-2);
+    font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  input[aria-invalid="true"] { border-color: var(--bad); }
+  .error { color: var(--bad); font-size: .8rem; min-height: 1em; display: block; }
+  .results { margin-bottom: var(--space-3); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin: var(--space-2) 0; }
+  .stat { border: 1px solid var(--border); border-radius: 12px; padding: var(--space-2); }
+  .stat b { display: block; font-size: 1.35rem; line-height: 1.2; }
+  .stat span { font-size: .85rem; color: var(--muted); }
+  .verdict { font-size: 1.05rem; margin: var(--space-2) 0 0; }
+  .verdict.loss { color: var(--bad); font-weight: 600; }
+  .math { margin-top: var(--space-3); font-size: .9rem; }
+  .math code { font-size: .85rem; }
+  .made { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); color: var(--muted); font-size: .9rem; }
+  .made img { width: 28px; height: 28px; }
+  @media (max-width: 340px) { .grid, .stats { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Break-even ROAS calculator</h1>
+  <p class="lede muted">Find the lowest ROAS where your ads stop losing money, with fees, shipping and returns counted. Use any currency.</p>
+
+  <section class="card results" aria-live="polite">
+    <div class="stats">
+      <div class="stat"><span>Break-even ROAS</span><b id="out-roas">–</b><span id="out-roas-pct"></span></div>
+      <div class="stat"><span>Break-even CPA</span><b id="out-cpa">–</b><span>max ad cost per order</span></div>
+      <div class="stat"><span>Target ROAS for your profit goal</span><b id="out-target">–</b><span id="out-target-pct"></span></div>
+      <div class="stat"><span>Profit per order before ads</span><b id="out-contribution">–</b><span>after costs and returns</span></div>
+    </div>
+    <p class="verdict" id="out-verdict"></p>
+  </section>
+
+  <form class="card" id="calc" novalidate>
+    <fieldset>
+      <legend>The order</legend>
+      <div class="grid">
+        <label>Average order value<span class="hint">Before any discount</span><input id="orderValue" inputmode="decimal" value="50"><span class="error" id="orderValue-error"></span></label>
+        <label>Average discount %<span class="hint">Codes, sales, bundles</span><input id="discountPct" inputmode="decimal" value="0"><span class="error" id="discountPct-error"></span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Your costs per order</legend>
+      <div class="grid">
+        <label>Product cost<span class="hint">What the goods cost you</span><input id="productCost" inputmode="decimal" value="15"><span class="error" id="productCost-error"></span></label>
+        <label>Shipping you pay<span class="hint">Outbound, per order</span><input id="shippingCost" inputmode="decimal" value="5"><span class="error" id="shippingCost-error"></span></label>
+        <label>Payment fee %<span class="hint">e.g. 2.9 for Stripe or Shopify</span><input id="feePct" inputmode="decimal" value="2.9"><span class="error" id="feePct-error"></span></label>
+        <label>Fixed fee per order<span class="hint">e.g. 0.30</span><input id="feeFixed" inputmode="decimal" value="0.30"><span class="error" id="feeFixed-error"></span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Returns</legend>
+      <div class="grid">
+        <label>Return rate %<span class="hint">Share of orders sent back</span><input id="returnRatePct" inputmode="decimal" value="0"><span class="error" id="returnRatePct-error"></span></label>
+        <label>Cost per return<span class="hint">Return label and handling</span><input id="returnCost" inputmode="decimal" value="0"><span class="error" id="returnCost-error"></span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Your goal</legend>
+      <label>Profit you want to keep after ads, as % of revenue<input id="targetMarginPct" inputmode="decimal" value="10"><span class="error" id="targetMarginPct-error"></span></label>
+    </fieldset>
+  </form>
+
+
+  <section class="math muted">
+    <p><b>How the maths works.</b> Price = order value minus discount. Profit per order before ads = (1 − return rate) × (price − product cost) − shipping − payment fee − return rate × cost per return. Returned orders are refunded in full and go back on the shelf; you keep paying the shipping, the fee and the return label.</p>
+    <p>Break-even ROAS = price ÷ profit per order. Target ROAS = price ÷ (profit per order − your profit goal × price). In Google Ads, enter the target as a percentage (3.5× = 350%). If your conversion value includes tax or shipping, your real target is a little higher.</p>
+  </section>
+
+  <footer class="made">
+    <img src="../../docs/orb.png" alt="" width="28" height="28">
+    <span>Built with <a href="https://omniscio.com" target="_blank" rel="noopener">Omniscio</a></span>
+  </footer>
+</main>
+<script src="calc.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const { FIELDS, readInputs, computeBreakEven } = window.RoasCalc;
+    const MESSAGES = {
+      notANumber: 'Enter a number',
+      negative: 'Can’t be negative',
+      overHundred: 'Must be 100 or less',
+      loss: 'You lose money on every order before spending anything on ads. Fix the price or the costs first.',
+      unreachable: 'Your profit goal isn’t reachable at this price, even with zero ad spend.',
+      profitable: (roas, cpa) => `To break even, each 1 you spend on ads must bring back ${roas} in sales, and one order can cost at most ${cpa} in ads.`
+    };
+    const number = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const $ = (id) => document.getElementById(id);
+    const asRoas = (x) => `${number.format(x)}×`;
+    const asPct = (x) => `${Math.round(x * 100)}% in Google Ads`;
+
+    function showErrors(errors) {
+      for (const name of FIELDS) {
+        $(name).setAttribute('aria-invalid', errors[name] ? 'true' : 'false');
+        $(`${name}-error`).textContent = errors[name] ? MESSAGES[errors[name]] : '';
+      }
+    }
+
+    function showResult(r) {
+      const ok = r.status === 'profitable';
+      $('out-contribution').textContent = number.format(r.contribution);
+      $('out-roas').textContent = ok ? asRoas(r.breakEvenRoas) : '–';
+      $('out-roas-pct').textContent = ok ? asPct(r.breakEvenRoas) : '';
+      $('out-cpa').textContent = ok ? number.format(r.breakEvenCpa) : '–';
+      $('out-target').textContent = r.targetReachable ? asRoas(r.targetRoas) : '–';
+      $('out-target-pct').textContent = r.targetReachable ? asPct(r.targetRoas) : '';
+      const verdict = $('out-verdict');
+      verdict.className = ok ? 'verdict' : 'verdict loss';
+      if (!ok) verdict.textContent = MESSAGES.loss;
+      else if (!r.targetReachable) verdict.textContent = `${MESSAGES.profitable(asRoas(r.breakEvenRoas), number.format(r.breakEvenCpa))} ${MESSAGES.unreachable}`;
+      else verdict.textContent = MESSAGES.profitable(asRoas(r.breakEvenRoas), number.format(r.breakEvenCpa));
+    }
+
+    function update() {
+      const raw = Object.fromEntries(FIELDS.map((name) => [name, $(name).value]));
+      const { values, errors } = readInputs(raw);
+      showErrors(errors);
+      if (Object.keys(errors).length === 0) showResult(computeBreakEven(values));
+    }
+
+    $('calc').addEventListener('input', update);
+    $('calc').addEventListener('submit', (e) => e.preventDefault());
+    update();
+  })();
+</script>
+</body>
+</html>
