@@ -117,7 +117,12 @@ async function checkUtmBulk(page) {
   await stubClipboard(page, true);
   await page.keyboard.press('Control+Enter');
   const copied = await page.evaluate(() => window.__copied) || '';
-  if (copied.split('\n').length !== 4 || copied.split('\n')[3] !== '') return `Copy all (Ctrl+Enter) gave: ${copied}`;
+  const lines = copied.split('\n');
+  if (lines.length !== 4 || lines[3] !== '') return `Copy all (Ctrl+Enter) gave: ${copied}`;
+  await page.fill('#bulk-input', '');
+  await stubClipboard(page, true);
+  await page.keyboard.press('Control+Enter');
+  if (await page.evaluate(() => window.__copied) !== null) return 'Ctrl+Enter copied an empty bulk list over the clipboard';
   const scroll = await sidewaysScroll(page);
   return scroll > 0 ? `bulk view scrolls sideways by ${scroll}px` : null;
 }

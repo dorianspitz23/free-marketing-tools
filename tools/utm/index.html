@@ -52,7 +52,6 @@
   .status { color: var(--muted); font-size: .9rem; }
   .manual { width: 100%; margin-top: var(--space-2); padding: 10px 12px; font: 500 .85rem/1.5 var(--mono); color: var(--text); background: var(--ink); border: 1px solid var(--lime); border-radius: var(--radius-sm); resize: vertical; }
   .channel { display: flex; align-items: center; gap: 8px; margin: var(--space-3) 0 0; font-size: .92rem; color: var(--muted); }
-  .channel b { color: var(--text); font-weight: 650; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); flex: none; }
   .channel[data-state="none"] .dot { background: var(--coral); }
 
@@ -98,7 +97,6 @@
   .bulk textarea { min-height: 190px; padding: 12px 14px; line-height: 1.6; resize: vertical; font-size: .88rem; white-space: pre; overflow-x: auto; }
   .bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
   .bulk-bar .summary { flex: 1 1 200px; color: var(--muted); font-size: .92rem; }
-  .bulk-bar .summary b { color: var(--text); }
   .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
   .rows li { display: grid; grid-template-columns: 34px 1fr; gap: var(--space-1) var(--space-2); padding: var(--space-2); border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); }
   .rows li[data-state="fix"] { border-color: rgba(255, 107, 94, .45); }
@@ -216,7 +214,7 @@ https://example.com/socks,newsletter,e-mail,</textarea>
     const COPY_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
     const NAMES = { url: 'url', source: 'utm_source', medium: 'utm_medium', campaign: 'utm_campaign', term: 'utm_term', content: 'utm_content' };
     const MESSAGES = {
-      ready: 'Ready', needsFields: 'Needs fields', toFix: (n) => `${n} to fix`, toCheck: (n) => `${n} to check`,
+      ready: 'Ready', toFix: (n) => `${n} to fix`, toCheck: (n) => `${n} to check`,
       empty: 'Fill in the URL, source, medium and campaign to get your link.',
       copy: 'Copy link', copyAll: 'Copy all', copied: 'Copied ✓',
       manual: `Your browser blocked copying here. The text is selected: press ${COPY_KEY}.`,
@@ -249,7 +247,7 @@ https://example.com/socks,newsletter,e-mail,</textarea>
     // --- Copy: Clipboard API, then the older copy command, then select the text for the person ---
     async function copyText(text, manualBox) {
       manualBox.hidden = true;
-      try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* blocked: try the next way */ }
+      try { await navigator.clipboard.writeText(text); return true; } catch { /* blocked: try the next way */ }
       const scratch = el('textarea');
       scratch.value = text;
       scratch.setAttribute('readonly', '');
@@ -259,7 +257,7 @@ https://example.com/socks,newsletter,e-mail,</textarea>
       scratch.focus();
       scratch.select();
       let copied = false;
-      try { copied = document.execCommand('copy'); } catch (e) { copied = false; }
+      try { copied = document.execCommand('copy'); } catch { /* unsupported: leave false */ }
       scratch.remove();
       if (focused) focused.focus();
       if (copied) return true;
@@ -295,9 +293,10 @@ https://example.com/socks,newsletter,e-mail,</textarea>
       const end = hashAt < 0 ? url.length : hashAt;
       const parts = [el('span', '', url.slice(0, queryAt))];
       url.slice(queryAt + 1, end).split('&').forEach((pair, n) => {
-        const eq = pair.includes('=') ? pair.indexOf('=') + 1 : pair.length;
-        const key = pair.slice(0, eq);
-        parts.push(el('span', 'k', `${n ? '&' : '?'}${key}`), el('span', bad.has(key.slice(0, -1)) ? 'v bad' : 'v', pair.slice(eq)));
+        const eq = pair.indexOf('=');
+        const name = eq < 0 ? pair : pair.slice(0, eq);
+        const value = eq < 0 ? '' : pair.slice(eq + 1);
+        parts.push(el('span', 'k', `${n ? '&' : '?'}${name}${eq < 0 ? '' : '='}`), el('span', bad.has(name) ? 'v bad' : 'v', value));
       });
       parts.push(el('span', '', url.slice(end)));
       box.replaceChildren(...parts);
@@ -324,11 +323,11 @@ https://example.com/socks,newsletter,e-mail,</textarea>
 
     function renderStatus(url, issues, row) {
       const errors = issues.filter((i) => i.severity === 'error').length;
-      const state = errors || !url ? 'fix' : issues.length ? 'warn' : 'ok';
+      // No link always means an error: buildUrl only fails on a missing field or a bad URL.
+      const state = errors ? 'fix' : issues.length ? 'warn' : 'ok';
       $('hero').dataset.state = state === 'ok' ? 'ok' : 'fix';
       $('chip').dataset.state = state;
-      $('chip').textContent = !url && !errors ? MESSAGES.needsFields
-        : errors ? MESSAGES.toFix(issues.length) : issues.length ? MESSAGES.toCheck(issues.length) : MESSAGES.ready;
+      $('chip').textContent = errors ? MESSAGES.toFix(issues.length) : issues.length ? MESSAGES.toCheck(issues.length) : MESSAGES.ready;
       const channel = mediumChannel(row.medium);
       $('channel').dataset.state = channel || !row.medium.trim() ? 'ok' : 'none';
       $('channel-text').textContent = !row.medium.trim() ? MESSAGES.noChannel
@@ -386,7 +385,9 @@ https://example.com/socks,newsletter,e-mail,</textarea>
       $('bulk-status').textContent = '';
     }
 
-    const copyBulk = () => copyWithFeedback(bulkLinks($('bulk-input').value), $('bulk-copy'), $('bulk-status'), $('bulk-manual'), MESSAGES.copyAll);
+    const copyBulk = () => {
+      if (!$('bulk-copy').disabled) copyWithFeedback(bulkLinks($('bulk-input').value), $('bulk-copy'), $('bulk-status'), $('bulk-manual'), MESSAGES.copyAll);
+    };
 
     // --- Mode switch (tabs with arrow-key support) ---
     const tabs = [$('tab-single'), $('tab-bulk')];
