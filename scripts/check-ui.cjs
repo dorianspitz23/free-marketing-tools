@@ -1,6 +1,6 @@
 // Opens each bundled tool (under the same sandbox rules an Omniscio Share uses) and the hub,
 // at phone and desktop size, and fails on sideways scrolling, console errors or dead output.
-// Needs Playwright on NODE_PATH and a local Chrome; see README "Checking the pages".
+// Needs Playwright on NODE_PATH and a local Chrome; see README "Getting started".
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
