@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search result preview</title>
+<meta name="description" content="See exactly where Google cuts your title, meta description and search ad, by real pixel width, on desktop and mobile.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  :root { --amber: #f5b642; --amber-soft: rgba(245, 182, 66, .14); --desk-width: 628px; }
+  .tool { max-width: 1120px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-5); }
+  .top { margin-bottom: var(--space-3); }
+  .top h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.02; margin: var(--space-2) 0 var(--space-2); letter-spacing: -.035em; }
+  .top h1 span { color: var(--lime); }
+  .top p { margin: 0; max-width: 56ch; color: var(--muted); }
+
+  /* Mode switch */
+  .modes { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: var(--space-3); border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+  .modes button { min-height: 38px; padding: 0 18px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 600 .9rem var(--font); cursor: pointer; }
+  .modes button[aria-selected="true"] { background: var(--lime); color: var(--lime-ink); }
+
+  .layout { display: grid; gap: var(--space-3); grid-template-areas: "inputs" "previews" "checks"; }
+  @media (min-width: 980px) {
+    .layout { grid-template-columns: minmax(0, 390px) minmax(0, 1fr); grid-template-areas: "inputs previews" "checks previews"; align-items: start; }
+    .previews { position: sticky; top: var(--space-3); }
+  }
+
+  /* Inputs */
+  form { grid-area: inputs; display: grid; gap: var(--space-2); }
+  fieldset { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); min-width: 0; }
+  legend { padding: 0 6px; margin-left: -6px; }
+  .field { display: grid; gap: 8px; padding: var(--space-2) 0; border-top: 1px solid var(--line); }
+  legend + .field { border-top: 0; }
+  .field label { font-weight: 600; font-size: .95rem; display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
+  .field label small { font-weight: 400; color: var(--faint); font-size: .8rem; }
+  .field input, .field textarea {
+    width: 100%; min-height: var(--tap); padding: 0 14px;
+    font: 500 .98rem var(--font); color: var(--text);
+    background: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    transition: border-color .15s ease;
+  }
+  .field textarea { padding: 11px 14px; line-height: 1.5; resize: vertical; min-height: 96px; }
+  .field input:hover, .field textarea:hover { border-color: var(--faint); }
+  .field input:focus, .field textarea:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px var(--lime-soft); }
+  .field [data-over="true"] { border-color: var(--coral); }
+  .count { font: 600 .78rem var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
+  .count[data-over="true"] { color: var(--coral); }
+  .paths { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+
+  /* Checks: status, meters, warnings */
+  .checks { grid-area: checks; padding: var(--space-3); position: relative; overflow: hidden; }
+  .checks::before { content: ""; position: absolute; inset: -50% -30% auto auto; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(var(--lime-soft), transparent 70%); pointer-events: none; }
+  .checks[data-state="fix"]::before { background: radial-gradient(var(--coral-soft), transparent 70%); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); position: relative; }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 7px 10px; border-radius: 999px; color: var(--lime-ink); background: var(--lime); white-space: nowrap; }
+  .chip[data-state="fix"] { background: var(--coral); color: #1a0705; }
+  .meters { display: grid; gap: var(--space-2); margin: var(--space-3) 0; position: relative; }
+  .meter-head { display: flex; justify-content: space-between; gap: var(--space-2); font-size: .88rem; color: var(--muted); margin-bottom: 6px; }
+  .meter-head b { color: var(--text); font-weight: 600; }
+  .meter-head .num { font: 600 .82rem var(--mono); color: var(--text); }
+  .bar { position: relative; height: 10px; border-radius: 999px; background: var(--ink); border: 1px solid var(--line); overflow: hidden; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px; background: var(--lime); transition: width .2s ease, background .2s ease; }
+  .bar .tick { position: absolute; top: 0; bottom: 0; left: 80%; width: 2px; background: var(--faint); }
+  .meter[data-state="near"] .fill { background: var(--amber); }
+  .meter[data-state="cut"] .fill { background: var(--coral); }
+  .meter[data-state="cut"] .num { color: var(--coral); }
+  .meter[data-state="near"] .num { color: var(--amber); }
+  .warnings { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-1); position: relative; }
+  .warning { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--space-2); padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); font-size: .9rem; line-height: 1.4; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); flex: none; }
+  .clear { display: flex; align-items: center; gap: 8px; color: var(--lime); font-size: .92rem; margin: var(--space-3) 0 0; position: relative; }
+  .clear .dot { background: var(--lime); }
+  .note { color: var(--faint); font-size: .82rem; line-height: 1.5; margin: var(--space-3) 0 0; position: relative; }
+
+  /* Previews: a light Google page inside the dark tool. Fonts match what the meters measure. */
+  .previews { grid-area: previews; padding: var(--space-3); display: grid; gap: var(--space-3); min-width: 0; }
+  .previews > div { min-width: 0; } /* lets the desktop result shrink instead of widening the page */
+  .screen-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+  .desk-wrap { overflow: hidden; border-radius: var(--radius-sm); }
+  .desk { width: var(--desk-width); transform-origin: top left; }
+  .g { background: #fff; color: #202124; font-family: Arial, sans-serif; border-radius: var(--radius-sm); }
+  .desk.g { padding: 18px 14px 26px; }
+  .g-bar { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 18px; margin-bottom: 22px; border-radius: 999px; border: 1px solid #dfe1e5; box-shadow: 0 1px 6px rgba(32, 33, 36, .12); font-size: 16px; color: #202124; overflow: hidden; white-space: nowrap; }
+  .g-bar::before { content: ""; width: 14px; height: 14px; border: 2px solid #9aa0a6; border-radius: 50%; flex: none; }
+  .g-sponsored { font-weight: 700; font-size: 14px; margin: 0 0 8px; }
+  .g-site { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .g-fav { width: 28px; height: 28px; border-radius: 50%; background: #f1f3f4; border: 1px solid #dadce0; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #4d5156; text-transform: uppercase; flex: none; }
+  .g-name { font-size: 14px; line-height: 20px; color: #202124; }
+  .g-crumb { font-size: 12px; line-height: 18px; color: #4d5156; overflow-wrap: anywhere; }
+  .g-title { display: block; color: #1a0dab; text-decoration: none; margin: 0 0 4px; }
+  .desk .g-title { font-size: 20px; line-height: 26px; white-space: nowrap; overflow: hidden; }
+  .phone .g-title { font-size: 16px; line-height: 22px; }
+  .g-desc { font-size: 14px; line-height: 22px; color: #4d5156; overflow-wrap: anywhere; }
+  .desk .g-desc { max-width: 600px; }
+  .g-empty { color: #9aa0a6; }
+  .phone { width: min(372px, 100%); padding: 12px; border-radius: 34px; background: #050608; border: 1px solid var(--line-strong); }
+  .phone .g { padding: 16px 14px 20px; border-radius: 24px; }
+  .phone .g-bar { height: 40px; margin-bottom: 16px; font-size: 14px; }
+  .phone .g-site { gap: 10px; }
+
+  .why { color: var(--muted); font-size: .88rem; line-height: 1.6; padding: var(--space-3); margin-top: var(--space-3); }
+  .why p { margin: 0 0 var(--space-2); }
+  .why p:last-child { margin-bottom: 0; }
+  .why b { color: var(--text); }
+
+  footer { margin-top: var(--space-4); }
+  [hidden] { display: none !important; }
+  @media (max-width: 520px) { .previews, .checks { padding: var(--space-2); } }
+</style>
+</head>
+<body>
+<main class="tool">
+  <header class="top">
+    <span class="label">Free tool · Day 3 of 10</span>
+    <h1>Search result <span>preview</span></h1>
+    <p>See exactly where Google cuts your title, description and search ad. Measured by real pixel width, the way Google does it, not by counting characters.</p>
+  </header>
+
+  <div class="modes" role="tablist" aria-label="Mode">
+    <button type="button" role="tab" id="tab-organic" aria-controls="organic" aria-selected="true">Organic result</button>
+    <button type="button" role="tab" id="tab-ad" aria-controls="ad" aria-selected="false" tabindex="-1">Search ad</button>
+  </div>
+
+  <div class="layout">
+    <form id="organic" role="tabpanel" aria-labelledby="tab-organic" novalidate autocomplete="off">
+      <fieldset>
+        <legend class="label">Your page</legend>
+        <div class="field"><label for="title">Page title <small>The blue link</small></label><input id="title" value="Waterproof Rain Jackets for Men &amp; Women | Free Shipping &amp; Returns | Northpeak"></div>
+        <div class="field"><label for="url">URL <small>Shown as a breadcrumb</small></label><input id="url" inputmode="url" spellcheck="false" value="https://www.northpeak.com/jackets/rain"></div>
+        <div class="field"><label for="description">Meta description <small>The grey text</small></label><textarea id="description" rows="4">Shop waterproof, breathable rain jackets built for real storms. Taped seams, packable hoods and pit zips in 12 colours. Free shipping over $50 and 60-day free returns on every order.</textarea></div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">Optional</legend>
+        <div class="field"><label for="keyword">Focus keyword <small>Should appear in the title</small></label><input id="keyword" value="rain jacket"></div>
+      </fieldset>
+    </form>
+
+    <form id="ad" role="tabpanel" aria-labelledby="tab-ad" novalidate autocomplete="off" hidden>
+      <fieldset>
+        <legend class="label">Headlines</legend>
+        <div class="field"><label for="headline1">Headline 1 <span class="count" id="count-headline1"></span></label><input id="headline1" value="Waterproof Rain Jackets"></div>
+        <div class="field"><label for="headline2">Headline 2 <span class="count" id="count-headline2"></span></label><input id="headline2" value="Free Shipping Over $50"></div>
+        <div class="field"><label for="headline3">Headline 3 <span class="count" id="count-headline3"></span></label><input id="headline3" value="60-Day Free Returns"></div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">Descriptions</legend>
+        <div class="field"><label for="description1">Description 1 <span class="count" id="count-description1"></span></label><textarea id="description1" rows="2">Taped seams, packable hoods and pit zips. Built for real storms, not just drizzle.</textarea></div>
+        <div class="field"><label for="description2">Description 2 <span class="count" id="count-description2"></span></label><textarea id="description2" rows="2">Shop 12 colours for men and women. Order today and it ships within 24 hours.</textarea></div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">Link</legend>
+        <div class="field"><label for="ad-url">Final URL <small>Only the domain is shown</small></label><input id="ad-url" inputmode="url" spellcheck="false" value="https://www.northpeak.com/jackets"></div>
+        <div class="paths">
+          <div class="field"><label for="path1">Path 1 <span class="count" id="count-path1"></span></label><input id="path1" spellcheck="false" value="rain-jackets"></div>
+          <div class="field"><label for="path2">Path 2 <span class="count" id="count-path2"></span></label><input id="path2" spellcheck="false" value="sale"></div>
+        </div>
+      </fieldset>
+    </form>
+
+    <section class="checks panel" id="checks" data-state="ok" aria-label="Checks">
+      <div class="row">
+        <span class="label">Checks</span>
+        <span class="chip" id="chip" aria-live="polite"></span>
+      </div>
+      <div class="meters" id="meters"></div>
+      <ul class="warnings" id="warnings"></ul>
+      <p class="clear" id="clear" hidden><span class="dot"></span>Nothing gets cut. It shows in full on desktop and mobile.</p>
+      <p class="note">Bar: lime fits, amber is close, coral gets cut. The tick marks Google’s limit.</p>
+    </section>
+
+    <section class="previews panel" aria-label="Preview">
+      <div>
+        <div class="screen-head"><span class="label">Desktop</span><span class="label">Mock-up · limits are estimates</span></div>
+        <div class="desk-wrap" id="desk-wrap"><div class="desk g" id="desk"></div></div>
+      </div>
+      <div>
+        <div class="screen-head"><span class="label">Mobile</span></div>
+        <div class="phone"><div class="g" id="mobile"></div></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="why panel">
+    <p><b>Why pixels, not characters.</b> Google cuts titles and descriptions when they run out of room on the screen, so a title full of wide letters like W and M gets cut sooner than one full of i and l. This tool measures your text in Google’s own font and size.</p>
+    <p><b>The limits are estimates.</b> Google doesn’t publish them and tests new layouts all the time. The tool uses the widths SEO tools commonly measure: about 600px for a desktop title, 920px for a desktop description and 680px on mobile. Ads drop whole headlines that don’t fit instead of cutting them.</p>
+  </section>
+
+  <footer>
+    <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="../../docs/orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
+  </footer>
+</main>
+<script src="calc.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const { DEVICES, ELLIPSIS, organicPreview, adPreview } = window.SerpCalc;
+    const AD_FIELDS = ['headline1', 'headline2', 'headline3', 'description1', 'description2', 'path1', 'path2'];
+    const BAR_MAX = 1.25; // the bar runs to 125% of the limit, so the limit tick sits at 80%
+    const LAST_WORDS = 3;
+    const DEVICE_NAMES = { desktop: 'desktop', mobile: 'mobile' };
+    const FIELD_NAMES = {
+      headline1: 'Headline 1', headline2: 'Headline 2', headline3: 'Headline 3',
+      description1: 'Description 1', description2: 'Description 2', path1: 'Path 1', path2: 'Path 2'
+    };
+    const MESSAGES = {
+      clear: 'All clear', toFix: (n) => `${n} to fix`,
+      meter: { title: 'Title', description: 'Description' },
+      px: (w, limit) => `${Math.round(w)} / ${limit} px`,
+      noTitle: 'Your page title', noDescription: 'Google picks a snippet from your page when there is no description.',
+      noHeadline: 'Your headline', sponsored: 'Sponsored', search: 'search',
+      warnings: {
+        titleMissing: () => 'No title. Google will write one from your page.',
+        titleCut: (w, p) => `Title cut on ${DEVICE_NAMES[w.device]} after “${lastWords(p[w.device].title.text)}”.`,
+        descriptionMissing: () => 'No meta description. Google will pick a snippet from the page.',
+        descriptionCut: (w, p) => `Description cut on ${DEVICE_NAMES[w.device]} after “${lastWords(p[w.device].description.text)}”.`,
+        keywordMissing: (w) => `Focus keyword “${w.keyword}” isn’t in the title.`,
+        overLimit: (w) => `Over the character limit: ${w.fields.map((f) => FIELD_NAMES[f]).join(', ')}. Google Ads won’t accept it.`,
+        headlineDropped: (w) => `${w.count} headline${w.count > 1 ? 's don’t' : ' doesn’t'} fit on ${DEVICE_NAMES[w.device]}, so Google drops ${w.count > 1 ? 'them' : 'it'} there.`
+      }
+    };
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const value = (id) => $(id).value;
+
+    const ctx = document.createElement('canvas').getContext('2d');
+    const measure = (text, font) => { ctx.font = font; return ctx.measureText(text).width; };
+
+    function lastWords(text) {
+      const words = text.slice(0, -ELLIPSIS.length).split(' ');
+      return words.slice(-LAST_WORDS).join(' ');
+    }
+
+    // --- Shared bits of a Google result ---
+    function searchBar(query) {
+      return el('div', 'g-bar', query || MESSAGES.search);
+    }
+
+    function siteRow(name, crumb) {
+      const row = el('div', 'g-site');
+      const text = el('div');
+      text.append(el('div', 'g-name', name), el('div', 'g-crumb', crumb));
+      row.append(el('span', 'g-fav', name.charAt(0) || '?'), text);
+      return row;
+    }
+
+    function titleLine(text, placeholder) {
+      return el('span', text ? 'g-title' : 'g-title g-empty', text || placeholder);
+    }
+
+    function descLine(text, placeholder) {
+      return el('div', text ? 'g-desc' : 'g-desc g-empty', text || placeholder);
+    }
+
+    // --- Checks panel ---
+    function meterRow(label, device, fit) {
+      const row = el('div', 'meter');
+      row.dataset.state = fit.state;
+      const head = el('div', 'meter-head');
+      const name = el('span');
+      name.append(el('b', '', label), ` · ${DEVICE_NAMES[device]}`);
+      head.append(name, el('span', 'num', MESSAGES.px(fit.width, fit.limit)));
+      const bar = el('div', 'bar');
+      const fill = el('span', 'fill');
+      fill.style.width = `${Math.min(fit.width / fit.limit, BAR_MAX) / BAR_MAX * 100}%`;
+      bar.append(fill, el('span', 'tick'));
+      row.append(head, bar);
+      return row;
+    }
+
+    function renderMeters(preview) {
+      const rows = [];
+      for (const part of ['title', 'description']) {
+        for (const device of Object.keys(DEVICES)) rows.push(meterRow(MESSAGES.meter[part], device, preview[device][part]));
+      }
+      $('meters').replaceChildren(...rows);
+    }
+
+    function renderWarnings(preview) {
+      $('warnings').replaceChildren(...preview.warnings.map((w) => {
+        const li = el('li', 'warning');
+        li.append(el('span', 'dot'), el('span', '', MESSAGES.warnings[w.code](w, preview)));
+        return li;
+      }));
+      const n = preview.warnings.length;
+      $('clear').hidden = n > 0;
+      $('chip').textContent = n ? MESSAGES.toFix(n) : MESSAGES.clear;
+      $('chip').dataset.state = n ? 'fix' : 'ok';
+      $('checks').dataset.state = n ? 'fix' : 'ok';
+    }
+
+    // --- Organic ---
+    function organicResult(preview, device) {
+      const crumb = preview.breadcrumb;
+      const name = crumb.split(' › ')[0];
+      return [
+        searchBar(value('keyword').trim()),
+        siteRow(name, crumb && crumb !== name ? `https://${crumb}` : crumb),
+        titleLine(preview[device].title.text, MESSAGES.noTitle),
+        descLine(preview[device].description.text, MESSAGES.noDescription)
+      ];
+    }
+
+    function updateOrganic() {
+      const preview = organicPreview({ title: value('title'), url: value('url'), description: value('description'), keyword: value('keyword') }, measure);
+      $('desk').replaceChildren(...organicResult(preview, 'desktop'));
+      $('mobile').replaceChildren(...organicResult(preview, 'mobile'));
+      renderMeters(preview);
+      renderWarnings(preview);
+      fitDesktop();
+    }
+
+    // --- Search ad ---
+    function adResult(preview, device) {
+      const name = preview.displayUrl.split('/')[0];
+      return [
+        searchBar(value('headline1').trim().toLowerCase()),
+        el('p', 'g-sponsored', MESSAGES.sponsored),
+        siteRow(name, preview.displayUrl),
+        titleLine(preview[device].headline, MESSAGES.noHeadline),
+        descLine(preview[device].description.text, '')
+      ];
+    }
+
+    function renderCounters(preview) {
+      for (const c of preview.counters) {
+        $(`count-${c.field}`).textContent = `${c.count}/${c.limit}`;
+        $(`count-${c.field}`).dataset.over = String(c.over);
+        $(c.field).dataset.over = String(c.over);
+      }
+    }
+
+    function updateAd() {
+      const ad = {
+        headlines: AD_FIELDS.slice(0, 3).map(value), descriptions: AD_FIELDS.slice(3, 5).map(value),
+        url: value('ad-url'), path1: value('path1'), path2: value('path2')
+      };
+      const preview = adPreview(ad, measure);
+      $('desk').replaceChildren(...adResult(preview, 'desktop'));
+      $('mobile').replaceChildren(...adResult(preview, 'mobile'));
+      renderCounters(preview);
+      $('meters').replaceChildren();
+      renderWarnings(preview);
+      fitDesktop();
+    }
+
+    // The desktop result keeps its real 600px column and shrinks as a picture on small screens.
+    function fitDesktop() {
+      const desk = $('desk');
+      const scale = Math.min(1, $('desk-wrap').clientWidth / desk.offsetWidth);
+      desk.style.transform = scale < 1 ? `scale(${scale})` : '';
+      $('desk-wrap').style.height = `${desk.offsetHeight * scale}px`;
+    }
+
+    // --- Mode switch (tabs with arrow-key support) ---
+    const tabs = [$('tab-organic'), $('tab-ad')];
+    const update = () => ($('ad').hidden ? updateOrganic : updateAd)();
+    function selectTab(tab) {
+      for (const t of tabs) {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        $(t.getAttribute('aria-controls')).hidden = !on;
+      }
+      update();
+    }
+    tabs.forEach((t, n) => {
+      t.addEventListener('click', () => selectTab(t));
+      t.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        const next = tabs[(n + 1) % tabs.length];
+        selectTab(next);
+        next.focus();
+      });
+    });
+
+    for (const form of [$('organic'), $('ad')]) {
+      form.addEventListener('input', update);
+      form.addEventListener('submit', (e) => e.preventDefault());
+    }
+    window.addEventListener('resize', fitDesktop);
+    update();
+  })();
+</script>
+</body>
+</html>
