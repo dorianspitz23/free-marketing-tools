@@ -39,7 +39,8 @@ async function openPage(browser, url, vp) {
   return { context, page, errors };
 }
 
-const sidewaysScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+// Measured against the viewport we asked for: a phone zooms out to fit wide content, so innerWidth grows with it.
+const sidewaysScroll = (page) => page.evaluate((width) => document.documentElement.scrollWidth - width, page.viewportSize().width);
 
 async function checkRoas(page) {
   const before = await page.textContent('#out-roas');
@@ -148,7 +149,36 @@ async function checkHub(page) {
   return shipped === expected ? null : `hub shows ${shipped} shipped cards, tools.json has ${expected}`;
 }
 
-const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm };
+// --- SERP: the example title is cut on desktop only; edits re-measure; ad counters turn coral ---
+
+async function checkSerpOrganic(page) {
+  if (!(await page.textContent('#desk .g-title')).endsWith(' ...')) return 'example title was not cut on desktop';
+  if ((await page.textContent('#mobile .g-title')).endsWith(' ...')) return 'example title was cut on mobile too';
+  if (await page.getAttribute('.meter', 'data-state') !== 'cut') return 'desktop title meter is not coral';
+  if (!/Title cut on desktop/.test(await page.textContent('#warnings'))) return 'title cut warning missing';
+  await page.fill('#title', 'Rain jackets');
+  if (await page.textContent('#desk .g-title') !== 'Rain jackets') return 'short title did not show whole';
+  if (await page.getAttribute('.meter', 'data-state') !== 'ok') return 'short title meter is not lime';
+  await page.fill('#keyword', 'parka');
+  return /“parka” isn’t in the title/.test(await page.textContent('#warnings')) ? null : 'missing keyword not flagged';
+}
+
+async function checkSerpAd(page) {
+  await page.click('#tab-ad');
+  if (await page.isHidden('#ad') || await page.isVisible('#organic')) return 'Search ad tab did not switch modes';
+  if (!/Sponsored/.test(await page.textContent('#mobile'))) return 'ad preview is not marked Sponsored';
+  await page.fill('#headline1', 'x'.repeat(31));
+  const over = await page.getAttribute('#count-headline1', 'data-over');
+  if (over !== 'true' || await page.textContent('#count-headline1') !== '31/30') return 'headline counter did not flag 31/30';
+  const scroll = await sidewaysScroll(page);
+  return scroll > 0 ? `ad view scrolls sideways by ${scroll}px` : null;
+}
+
+async function checkSerp(page) {
+  return await checkSerpOrganic(page) || await checkSerpAd(page);
+}
+
+const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp };
 
 (async () => {
   const server = serve().listen(0);

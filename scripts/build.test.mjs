@@ -8,7 +8,7 @@ import { inlineTool, TOOLS } from './build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // One function each tool's calc.js must define, proving its logic made it into the bundle.
-const LOGIC_MARKER = { roas: /computeBreakEven/, utm: /function buildUrl/ };
+const LOGIC_MARKER = { roas: /computeBreakEven/, utm: /function buildUrl/, serp: /function fitText/ };
 
 for (const tool of TOOLS) {
   test(`the bundled ${tool} tool has no external stylesheet or script references`, () => {
@@ -25,10 +25,12 @@ for (const tool of TOOLS) {
   });
 }
 
-test('the UTM tool puts user text on the page as text, never as HTML', () => {
-  assert.doesNotMatch(readFileSync(join(ROOT, 'tools', 'utm', 'index.html'), 'utf8'),
-    /innerHTML|outerHTML|insertAdjacentHTML|document\.write/);
-});
+for (const tool of ['utm', 'serp']) {
+  test(`the ${tool} tool puts user text on the page as text, never as HTML`, () => {
+    assert.doesNotMatch(readFileSync(join(ROOT, 'tools', tool, 'index.html'), 'utf8'),
+      /innerHTML|outerHTML|insertAdjacentHTML|document\.write/);
+  });
+}
 
 test('the hub serves the same look as the tools (docs/tokens.css matches shared/tokens.css)', () => {
   const shared = readFileSync(join(ROOT, 'shared', 'tokens.css'), 'utf8');
