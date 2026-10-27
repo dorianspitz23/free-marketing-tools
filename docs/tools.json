@@ -5,5 +5,12 @@
     "blurb": "The lowest ROAS where your ads stop losing money, with fees, shipping and returns counted. Gives you the target ROAS to enter in Google Ads.",
     "url": "https://omnisc.io/s62a8gu7scdyw",
     "shot": "shots/roas.png"
+  },
+  {
+    "day": 2,
+    "name": "UTM link builder",
+    "blurb": "Tagged links that land in the right GA4 channel. Flags capitals, spaces and mediums GA4 won't recognise, fixes them in one click, and does a whole spreadsheet at once.",
+    "url": "https://shares.omniscio.com/s/f7a861676cc2386e58406b45523e997e6d38a6a9d46bec33eff8c833a9af274f",
+    "shot": "shots/utm.png"
   }
 ]
