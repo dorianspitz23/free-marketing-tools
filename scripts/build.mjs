@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const TOOLS = ['roas'];
+export const TOOLS = ['roas', 'utm'];
 const TOKENS = join(ROOT, 'shared', 'tokens.css');
 
 const ORB = join(ROOT, 'docs', 'orb.png');
