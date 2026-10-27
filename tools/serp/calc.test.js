@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  DEVICES, AD_LIMITS, ELLIPSIS, fitText, meterState, breadcrumb, organicPreview, adPreview
+  DEVICES, AD_LIMITS, ELLIPSIS, fitText, meterState, site, breadcrumb, organicPreview, adPreview
 } = require('./calc.js');
 
 // A fake measurer: every character is 10px wide, whatever the font. Records the fonts it was asked for.
@@ -77,6 +77,12 @@ test('breadcrumb shows the domain without www, then each path part, like Google'
 test('breadcrumb accepts a link without https:// and a bare domain', () => {
   assert.equal(breadcrumb('example.com/blog/'), 'example.com › blog');
   assert.equal(breadcrumb('shop.example.com'), 'shop.example.com');
+});
+
+test('site is the domain Google names above a result, or the text as typed when it is not a link', () => {
+  assert.equal(site('https://www.example.com/products?ref=x'), 'example.com');
+  assert.equal(site('shop.example.com/a'), 'shop.example.com');
+  assert.equal(site(' my shop '), 'my shop');
 });
 
 test('breadcrumb decodes encoded path parts and leaves non-links as typed', () => {

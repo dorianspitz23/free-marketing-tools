@@ -68,6 +68,12 @@
     try { return decodeURIComponent(part); } catch { return part; }
   }
 
+  // The site name Google shows above a result: the domain without www, or the text as typed.
+  function site(raw) {
+    const url = parseLink(raw);
+    return url && url.hostname.includes('.') ? siteName(url) : clean(raw);
+  }
+
   // "example.com › products › rain-jacket", the way Google shows the link above a result.
   function breadcrumb(raw) {
     const url = parseLink(raw);
@@ -81,27 +87,27 @@
     return { ...fit, limit: spec.limit, state: meterState(fit.width, spec.limit) };
   }
 
-  function cutWarnings(code, results) {
-    return Object.keys(DEVICES).filter((d) => results[d].cut).map((device) => ({ code, device }));
+  // One warning per device whose `part` (title / description) got cut.
+  function cutWarnings(code, preview, part) {
+    return Object.keys(DEVICES).filter((d) => preview[d][part].cut).map((device) => ({ code, device }));
   }
 
   // Organic result: { title, url, description, keyword } -> fitted text, meters and warnings per device.
   function organicPreview(input, measure) {
-    const preview = { breadcrumb: breadcrumb(input.url), warnings: [] };
-    const titles = {};
-    const descriptions = {};
+    const preview = { site: site(input.url), breadcrumb: breadcrumb(input.url) };
     for (const [device, spec] of Object.entries(DEVICES)) {
-      titles[device] = measured(input.title, spec.title, measure);
-      descriptions[device] = measured(input.description, spec.description, measure);
-      preview[device] = { title: titles[device], description: descriptions[device] };
+      preview[device] = {
+        title: measured(input.title, spec.title, measure),
+        description: measured(input.description, spec.description, measure)
+      };
     }
     const keyword = clean(input.keyword).toLowerCase();
     const title = clean(input.title);
     preview.warnings = [
       ...(title ? [] : [{ code: 'titleMissing' }]),
-      ...cutWarnings('titleCut', titles),
+      ...cutWarnings('titleCut', preview, 'title'),
       ...(clean(input.description) ? [] : [{ code: 'descriptionMissing' }]),
-      ...cutWarnings('descriptionCut', descriptions),
+      ...cutWarnings('descriptionCut', preview, 'description'),
       ...(keyword && !title.toLowerCase().includes(keyword) ? [{ code: 'keywordMissing', keyword }] : [])
     ];
     return preview;
@@ -131,34 +137,27 @@
     return { text: shown.join(HEADLINE_JOIN), dropped: headlines.length - shown.length };
   }
 
-  function displayUrl(ad) {
-    const url = parseLink(ad.url);
-    const site = url ? siteName(url) : clean(ad.url);
-    return [site, clean(ad.path1), clean(ad.path2)].filter(Boolean).join('/');
-  }
-
   // Search ad: { headlines[3], descriptions[2], url, path1, path2 } -> counters, per-device lines, warnings.
   function adPreview(ad, measure) {
     const headlines = ad.headlines.map(clean).filter(Boolean);
     const description = ad.descriptions.map(clean).filter(Boolean).join(' ');
     const counters = adCounters(ad);
-    const preview = { counters, displayUrl: displayUrl(ad), warnings: [] };
-    const descriptions = {};
+    const name = site(ad.url);
+    const preview = { counters, site: name, displayUrl: [name, clean(ad.path1), clean(ad.path2)].filter(Boolean).join('/') };
     const drops = [];
     for (const [device, spec] of Object.entries(DEVICES)) {
       const line = headlineLine(headlines, spec.title, measure);
-      descriptions[device] = measured(description, spec.description, measure);
-      preview[device] = { headline: line.text, dropped: line.dropped, description: descriptions[device] };
+      preview[device] = { headline: line.text, description: measured(description, spec.description, measure) };
       if (line.dropped) drops.push({ code: 'headlineDropped', device, count: line.dropped });
     }
     const over = counters.filter((c) => c.over).map((c) => c.field);
     preview.warnings = [
       ...(over.length ? [{ code: 'overLimit', fields: over }] : []),
       ...drops,
-      ...cutWarnings('descriptionCut', descriptions)
+      ...cutWarnings('descriptionCut', preview, 'description')
     ];
     return preview;
   }
 
-  return { DEVICES, AD_LIMITS, ELLIPSIS, fitText, meterState, breadcrumb, organicPreview, adPreview };
+  return { DEVICES, AD_LIMITS, ELLIPSIS, fitText, meterState, site, breadcrumb, organicPreview, adPreview };
 });

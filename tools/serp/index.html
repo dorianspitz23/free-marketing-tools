@@ -198,7 +198,6 @@
     const AD_FIELDS = ['headline1', 'headline2', 'headline3', 'description1', 'description2', 'path1', 'path2'];
     const BAR_MAX = 1.25; // the bar runs to 125% of the limit, so the limit tick sits at 80%
     const LAST_WORDS = 3;
-    const DEVICE_NAMES = { desktop: 'desktop', mobile: 'mobile' };
     const FIELD_NAMES = {
       headline1: 'Headline 1', headline2: 'Headline 2', headline3: 'Headline 3',
       description1: 'Description 1', description2: 'Description 2', path1: 'Path 1', path2: 'Path 2'
@@ -211,12 +210,12 @@
       noHeadline: 'Your headline', sponsored: 'Sponsored', search: 'search',
       warnings: {
         titleMissing: () => 'No title. Google will write one from your page.',
-        titleCut: (w, p) => `Title cut on ${DEVICE_NAMES[w.device]} after “${lastWords(p[w.device].title.text)}”.`,
+        titleCut: (w, p) => `Title cut on ${w.device} after “${lastWords(p[w.device].title.text)}”.`,
         descriptionMissing: () => 'No meta description. Google will pick a snippet from the page.',
-        descriptionCut: (w, p) => `Description cut on ${DEVICE_NAMES[w.device]} after “${lastWords(p[w.device].description.text)}”.`,
+        descriptionCut: (w, p) => `Description cut on ${w.device} after “${lastWords(p[w.device].description.text)}”.`,
         keywordMissing: (w) => `Focus keyword “${w.keyword}” isn’t in the title.`,
         overLimit: (w) => `Over the character limit: ${w.fields.map((f) => FIELD_NAMES[f]).join(', ')}. Google Ads won’t accept it.`,
-        headlineDropped: (w) => `${w.count} headline${w.count > 1 ? 's don’t' : ' doesn’t'} fit on ${DEVICE_NAMES[w.device]}, so Google drops ${w.count > 1 ? 'them' : 'it'} there.`
+        headlineDropped: (w) => `${w.count} headline${w.count > 1 ? 's don’t' : ' doesn’t'} fit on ${w.device}, so Google drops ${w.count > 1 ? 'them' : 'it'} there.`
       }
     };
     const $ = (id) => document.getElementById(id);
@@ -258,7 +257,7 @@
       row.dataset.state = fit.state;
       const head = el('div', 'meter-head');
       const name = el('span');
-      name.append(el('b', '', label), ` · ${DEVICE_NAMES[device]}`);
+      name.append(el('b', '', label), ` · ${device}`);
       head.append(name, el('span', 'num', MESSAGES.px(fit.width, fit.limit)));
       const bar = el('div', 'bar');
       const fill = el('span', 'fill');
@@ -289,13 +288,19 @@
       $('checks').dataset.state = n ? 'fix' : 'ok';
     }
 
+    function renderResults(result, preview) {
+      $('desk').replaceChildren(...result(preview, 'desktop'));
+      $('mobile').replaceChildren(...result(preview, 'mobile'));
+      renderWarnings(preview);
+      fitDesktop();
+    }
+
     // --- Organic ---
     function organicResult(preview, device) {
-      const crumb = preview.breadcrumb;
-      const name = crumb.split(' › ')[0];
+      const { site, breadcrumb } = preview;
       return [
         searchBar(value('keyword').trim()),
-        siteRow(name, crumb && crumb !== name ? `https://${crumb}` : crumb),
+        siteRow(site, breadcrumb !== site ? `https://${breadcrumb}` : breadcrumb),
         titleLine(preview[device].title.text, MESSAGES.noTitle),
         descLine(preview[device].description.text, MESSAGES.noDescription)
       ];
@@ -303,20 +308,16 @@
 
     function updateOrganic() {
       const preview = organicPreview({ title: value('title'), url: value('url'), description: value('description'), keyword: value('keyword') }, measure);
-      $('desk').replaceChildren(...organicResult(preview, 'desktop'));
-      $('mobile').replaceChildren(...organicResult(preview, 'mobile'));
       renderMeters(preview);
-      renderWarnings(preview);
-      fitDesktop();
+      renderResults(organicResult, preview);
     }
 
     // --- Search ad ---
     function adResult(preview, device) {
-      const name = preview.displayUrl.split('/')[0];
       return [
         searchBar(value('headline1').trim().toLowerCase()),
         el('p', 'g-sponsored', MESSAGES.sponsored),
-        siteRow(name, preview.displayUrl),
+        siteRow(preview.site, preview.displayUrl),
         titleLine(preview[device].headline, MESSAGES.noHeadline),
         descLine(preview[device].description.text, '')
       ];
@@ -336,12 +337,9 @@
         url: value('ad-url'), path1: value('path1'), path2: value('path2')
       };
       const preview = adPreview(ad, measure);
-      $('desk').replaceChildren(...adResult(preview, 'desktop'));
-      $('mobile').replaceChildren(...adResult(preview, 'mobile'));
       renderCounters(preview);
       $('meters').replaceChildren();
-      renderWarnings(preview);
-      fitDesktop();
+      renderResults(adResult, preview);
     }
 
     // The desktop result keeps its real 600px column and shrinks as a picture on small screens.
