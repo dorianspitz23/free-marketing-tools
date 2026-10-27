@@ -29,6 +29,11 @@ ship.
   link, and mediums GA4's default channel rules don't recognise, each with a one-click fix. Bulk mode
   takes rows pasted from a spreadsheet and gives back a table of finished links with Fix all and
   Copy all.
+- **Day 3 — Search result preview.** A Google result and a search ad on desktop and mobile side by
+  side, cut where Google would cut them, measured by pixel width in Google's fonts rather than by
+  character count. Live width meters for the title and description, warnings for cut text and a focus
+  keyword missing from the title, and 30/90/15 character counters for ad headlines, descriptions and
+  paths. The pixel limits are commonly measured estimates; Google doesn't publish them.
 - **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A neutral link preview for posting on X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.
 - **No accounts, no tracking, nothing stored.** Each tool runs entirely in the browser.
