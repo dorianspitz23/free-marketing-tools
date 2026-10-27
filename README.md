@@ -24,6 +24,11 @@ ship.
 - **Day 1 — Break-even ROAS calculator.** The lowest ROAS where your ads stop losing money, with
   discounts, payment fees, shipping and returns counted, plus the target ROAS (as a Google Ads %) for
   the profit you want to keep.
+- **Day 2 — UTM link builder.** Tagged links that land in the right GA4 channel. Flags capitals,
+  spaces, stray whitespace, characters that get encoded, missing fields, UTMs already in the pasted
+  link, and mediums GA4's default channel rules don't recognise, each with a one-click fix. Bulk mode
+  takes rows pasted from a spreadsheet and gives back a table of finished links with Fix all and
+  Copy all.
 - **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A neutral link preview for posting on X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.
 - **No accounts, no tracking, nothing stored.** Each tool runs entirely in the browser.
@@ -52,7 +57,7 @@ shared/tokens.css     the one design-token file
 tools/<tool>/         a tool: index.html, its logic, and its tests
 scripts/
   build.mjs           inlines each tool into dist/<tool>.html and refreshes docs/tokens.css
-  check-ui.cjs        phone/desktop checks for the tool and the hub
+  check-ui.cjs        phone/desktop checks for every tool (TOOL_CHECKS) and the hub
   render-og.cjs       regenerates docs/og.png from og-card.html
   render-shots.cjs    renders each dist/<tool>.html into docs/shots/<tool>.png
 tests/hub.test.mjs    hub rules: neutral preview, valid tools.json, Built with Omniscio
@@ -73,8 +78,12 @@ npm run check:ui      # phone + desktop checks (needs Playwright + Chrome)
 
 1. Build it in `tools/<name>/`: an `index.html` that links `../../shared/tokens.css`, loads its logic
    from `calc.js`, and keeps the Built with Omniscio footer (copy the ROAS tool's), with tests beside it.
-   Add the name to `TOOLS` in `scripts/build.mjs`.
+   Add the name to `TOOLS` in `scripts/build.mjs`, a marker from its `calc.js` to `LOGIC_MARKER` in
+   `scripts/build.test.mjs`, and a check function to `TOOL_CHECKS` in `scripts/check-ui.cjs` (a tool
+   missing from `TOOL_CHECKS` is not checked at all).
 2. `npm run build`, then `node scripts/render-shots.cjs` for the card thumbnail, then `npm run check:ui`.
+   The page check serves each tool under the Share's sandbox rules; if the tool copies to the
+   clipboard, test every fallback (see the UTM tool's checks).
 3. Publish `dist/<name>.html` as an Omniscio Share that never expires.
 4. Add one entry to `docs/tools.json` (`day`, `name`, `blurb`, `url`, `shot: "shots/<name>.png"`) and push. The hub fills that day's slot itself.
 
