@@ -123,14 +123,15 @@
     if (trimmed !== trimmed.toLowerCase()) {
       issues.push(issue(field, 'capitals', 'error', withField(row, field, value.toLowerCase())));
     }
-    if (/\s/.test(trimmed)) issues.push(issue(field, 'spaces', 'error', withField(row, field, value.replace(/\s+/g, SEPARATOR))));
+    if (/\s/.test(trimmed)) issues.push(issue(field, 'spaces', 'error', withField(row, field, trimmed.replace(/\s+/g, SEPARATOR))));
     if (UNSAFE.test(trimmed)) issues.push(issue(field, 'encoding', 'error', withField(row, field, encodingFix(value))));
     return issues;
   }
 
   function mediumIssue(row) {
     if (mediumChannel(row.medium) !== null) return [];
-    const suggestion = MEDIUM_SYNONYMS[row.medium.trim().toLowerCase()] || null;
+    const key = row.medium.trim().toLowerCase();
+    const suggestion = Object.hasOwn(MEDIUM_SYNONYMS, key) ? MEDIUM_SYNONYMS[key] : null;
     const fixed = suggestion && withField(row, 'medium', suggestion);
     return [issue('medium', 'unknownMedium', 'warning', fixed, { suggestion })];
   }
@@ -142,7 +143,8 @@
     const fixed = { ...row, url: joinUrl(path, query.filter((pair) => utmParamOf(pair) === null), hash) };
     for (const pair of found) {
       const name = utmParamOf(pair);
-      if (fixed[name].trim() === '') fixed[name] = decode(pair.slice(pair.indexOf('=') + 1));
+      const eq = pair.indexOf('=');
+      if (fixed[name].trim() === '') fixed[name] = eq < 0 ? '' : decode(pair.slice(eq + 1));
     }
     const params = found.map((pair) => `utm_${utmParamOf(pair)}`);
     return [issue('url', 'existingUtm', 'warning', fixed, { params })];
@@ -200,21 +202,24 @@
       seenData = true;
       if (isHeader) return;
       const row = Object.fromEntries(FIELDS.map((f, i) => [f, cells[i] || '']));
-      rows.push({ line: index + 1, row });
+      rows.push({ line: index + 1, row, extra: cells.slice(FIELDS.length) });
     });
     return rows;
   }
 
-  function formatRow(row, separator) {
-    const cells = FIELDS.map((f) => (row[f].includes(separator) ? `"${row[f]}"` : row[f]));
-    while (cells.length > REQUIRED.length && cells[cells.length - 1] === '') cells.pop();
-    return cells.join(separator);
+  // Extra columns past content (notes, owner...) are carried through untouched.
+  function formatRow(row, extra, separator) {
+    const cells = FIELDS.map((f) => row[f]);
+    if (extra.length === 0) {
+      while (cells.length > REQUIRED.length && cells[cells.length - 1] === '') cells.pop();
+    }
+    return cells.concat(extra).join(separator);
   }
 
   function fixBulk(text) {
     const lines = String(text).split(/\r?\n/);
-    for (const { line, row } of parseBulk(text)) {
-      if (lintRow(row).some((i) => i.fixed)) lines[line - 1] = formatRow(fixAll(row), separatorOf(lines[line - 1]));
+    for (const { line, row, extra } of parseBulk(text)) {
+      if (lintRow(row).some((i) => i.fixed)) lines[line - 1] = formatRow(fixAll(row), extra, separatorOf(lines[line - 1]));
     }
     return lines.join('\n');
   }
@@ -223,5 +228,5 @@
     return parseBulk(text).map(({ row }) => buildUrl(row) || '').join('\n');
   }
 
-  return { FIELDS, REQUIRED, buildUrl, mediumChannel, lintRow, fixAll, parseBulk, fixBulk, bulkLinks };
+  return { FIELDS, buildUrl, mediumChannel, lintRow, fixAll, parseBulk, fixBulk, bulkLinks };
 });

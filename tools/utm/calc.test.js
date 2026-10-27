@@ -179,6 +179,25 @@ test('Fix all reaches a row with nothing left to fix, however messy the input', 
   assert.deepEqual(codes(fixAll(messy[3])), ['source:missing', 'medium:unknownMedium']);
 });
 
+test('a medium named like a built-in object key gets no bogus suggestion', () => {
+  for (const medium of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+    const issue = lintRow({ ...clean, medium }).find((i) => i.code === 'unknownMedium');
+    assert.equal(issue.data.suggestion, null, `${medium} got a suggestion`);
+    assert.equal(issue.fixed, null);
+  }
+});
+
+test('a UTM key with no value in the pasted URL moves in as empty, not as its own name', () => {
+  const issue = lintRow({ ...clean, url: 'https://example.com/?utm_source', source: '' })
+    .find((i) => i.code === 'existingUtm');
+  assert.equal(issue.fixed.source, '');
+  assert.equal(issue.fixed.url, 'https://example.com/');
+});
+
+test('the one-click spaces fix also drops edge spaces instead of turning them into hyphens', () => {
+  assert.equal(fixOf({ ...clean, source: ' news letter ' }, 'source', 'spaces').source, 'news-letter');
+});
+
 // --- Bulk ------------------------------------------------------------------------------
 
 test('bulk: commas or tabs, blank lines and a header row skipped, quoted and padded cells cleaned', () => {
@@ -195,6 +214,11 @@ test('bulk: Fix all rewrites each data line and leaves the header and blank line
   const text = 'URL\tSource\tMedium\tCampaign\nexample.com\tFacebook\tFacebook\tSpring Sale\n\nhttps://a.com\tx\tqr\tq';
   assert.equal(fixBulk(text),
     'URL\tSource\tMedium\tCampaign\nhttps://example.com\tfacebook\tsocial\tspring-sale\n\nhttps://a.com\tx\tqr\tq');
+});
+
+test('bulk: Fix all keeps any extra columns after content, like a notes column', () => {
+  assert.equal(fixBulk('https://a.com,Google,cpc,brand,,,keep me,and me'),
+    'https://a.com,google,cpc,brand,,,keep me,and me');
 });
 
 test('bulk: Copy all gives one link per row and a blank line where a row cannot be built', () => {
