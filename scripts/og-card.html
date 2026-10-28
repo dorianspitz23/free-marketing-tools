@@ -2,21 +2,35 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- The link-preview card mirrors the hub: same tokens, same headline, same 10-day grid. Keep it Omniscio-free. -->
+<link rel="stylesheet" href="../shared/tokens.css">
 <style>
-  html, body { margin: 0; width: 1200px; height: 630px; }
-  body {
-    display: flex; flex-direction: column; justify-content: center; padding: 0 90px; box-sizing: border-box;
-    background: radial-gradient(circle at 85% 20%, #3b2f9e 0%, transparent 45%), #0d0d12;
-    color: #ececf3; font-family: system-ui, "Segoe UI", Roboto, sans-serif;
-  }
-  .kicker { font-size: 34px; font-weight: 700; color: #8f82ff; margin: 0 0 18px; }
-  h1 { font-size: 92px; line-height: 1.02; margin: 0; letter-spacing: -0.02em; }
-  p { font-size: 34px; color: #a3a3b5; margin: 28px 0 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body { padding: 48px 72px 104px; display: grid; grid-template-columns: 1fr 400px; gap: 56px; align-items: center; }
+  .mark { display: flex; align-items: center; gap: 16px; font-size: 26px; font-weight: 750; letter-spacing: -.01em; }
+  .mark img { width: 56px; height: 56px; }
+  h1 { font-size: 70px; line-height: 1.02; letter-spacing: -.04em; margin: 40px 0 22px; }
+  h1 em { font-style: normal; color: var(--lime); }
+  p { font-size: 27px; color: var(--muted); margin: 0; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .slot { height: 78px; border-radius: var(--radius-sm); border: 2px dashed var(--line-strong); padding: 14px 18px; display: flex; align-items: flex-end; }
+  .slot b { font: 800 34px/1 var(--font); letter-spacing: -.04em; color: var(--line-strong); }
+  .slot.on { border: 2px solid var(--lime); background: var(--lime-soft); justify-content: space-between; }
+  .slot.on b { color: var(--lime); }
+  .slot.on .label { color: var(--lime); font-size: 14px; }
 </style>
 </head>
 <body>
-  <div class="kicker">10 days · 10 tools</div>
-  <h1>Free marketing tools,<br>one a day</h1>
-  <p>No sign-up. Works on your phone.</p>
+  <div>
+    <div class="mark"><img src="../docs/mark.svg" alt=""><span>Free Marketing Tools</span></div>
+    <h1>A free marketing tool, <em>every day</em> for 10 days.</h1>
+    <p>No sign-up. Works on your phone.</p>
+  </div>
+  <div class="grid">
+    <div class="slot on"><b>01</b><span class="label">Free tool</span></div>
+    <div class="slot"><b>02</b></div><div class="slot"><b>03</b></div><div class="slot"><b>04</b></div>
+    <div class="slot"><b>05</b></div><div class="slot"><b>06</b></div><div class="slot"><b>07</b></div>
+    <div class="slot"><b>08</b></div><div class="slot"><b>09</b></div><div class="slot"><b>10</b></div>
+  </div>
 </body>
 </html>

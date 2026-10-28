@@ -51,6 +51,21 @@
   .locked.next .when { color: var(--muted); }
   footer { margin-top: var(--space-4); }
   #load-error { color: var(--coral); }
+
+  /* The same floating attribution pill an Omniscio Share carries; the page reserves room for it. */
+  body { padding-bottom: 72px; }
+  .made-with {
+    position: fixed; right: 16px; bottom: 16px; z-index: 10;
+    display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 7px;
+    border-radius: 999px; text-decoration: none; color: var(--text);
+    background: rgba(21, 23, 28, .72); border: 1px solid var(--line-strong);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, .35);
+    -webkit-backdrop-filter: blur(10px) saturate(1.2); backdrop-filter: blur(10px) saturate(1.2);
+    font: 600 14px/1 var(--font); transition: border-color .15s ease;
+  }
+  .made-with:hover { border-color: var(--lime); }
+  .made-with img { width: 24px; height: 24px; }
+  .made-with span { color: var(--muted); font-weight: 500; }
 </style>
 </head>
 <body>
@@ -76,6 +91,7 @@
     <p id="load-error" hidden>The tool list didn't load. Refresh the page to try again.</p>
   </main>
 </div>
+<a class="made-with" href="https://omniscio.com" target="_blank" rel="noopener"><img src="orb.png" alt="" width="24" height="24"><span>Made with</span> Omniscio</a>
 <template id="tool-card">
   <li class="slot shipped">
     <div class="shot"></div>

@@ -34,7 +34,8 @@ ship.
   character count. Live width meters for the title and description, warnings for cut text and a focus
   keyword missing from the title, and 30/90/15 character counters for ad headlines, descriptions and
   paths. The pixel limits are commonly measured estimates; Google doesn't publish them.
-- **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A neutral link preview for posting on X.
+- **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A floating Made with Omniscio badge, the
+  same one an Omniscio Share carries, and a link preview in the hub's own look that stays neutral for X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.
 - **No accounts, no tracking, nothing stored.** Each tool runs entirely in the browser.
 
@@ -90,7 +91,9 @@ npm run check:ui      # phone + desktop checks (needs Playwright + Chrome)
 2. `npm run build`, then `node scripts/render-shots.cjs` for the card thumbnail, then `npm run check:ui`.
    The page check serves each tool under the Share's sandbox rules; if the tool copies to the
    clipboard, test every fallback (see the UTM tool's checks).
-3. Publish `dist/<name>.html` as an Omniscio Share that never expires.
+3. Publish `dist/<name>.html` as an Omniscio Share that never expires. Its `url` is the
+   `https://shares.omniscio.com/s/<token>` address, never the `omnisc.io` short link: that is a
+   second domain, and when it fails to resolve the hub's Open tool button goes nowhere.
 4. Add one entry (`day`, `name`, `blurb`, `url`, `shot: "shots/<name>.png"`) to `upcoming.json`.
    Tools are built ahead of their day, and the hub must only show days already posted on X.
 5. On the tool's day, move its entry from `upcoming.json` to the end of `docs/tools.json` and push.
@@ -98,5 +101,6 @@ npm run check:ui      # phone + desktop checks (needs Playwright + Chrome)
 
 ### Regenerating the preview image
 
-Edit `scripts/og-card.html`, then run `node scripts/render-og.cjs`. Keep it free of the word Omniscio;
-`tests/hub.test.mjs` enforces that for the preview tags.
+Edit `scripts/og-card.html`, then run `node scripts/render-og.cjs`. The card reads `shared/tokens.css`,
+so it follows the hub's colours. Keep its bottom-left corner empty (X lays the page title over it) and
+keep it free of the word Omniscio; `tests/hub.test.mjs` enforces that for the preview tags.

@@ -39,6 +39,14 @@ test('the page itself says Built with Omniscio', () => {
   assert.match(html.replace(/<[^>]+>/g, ''), /Built with Omniscio/);
 });
 
+test('the page carries the floating Made with Omniscio badge, like an Omniscio Share', () => {
+  const badge = html.match(/<a[^>]+class="made-with"[^>]*>[\s\S]*?<\/a>/);
+  assert.ok(badge, 'missing the <a class="made-with"> badge');
+  assert.match(badge[0], /href="https:\/\/omniscio\.com"/, 'badge must link to omniscio.com');
+  assert.match(badge[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '), /Made with Omniscio/);
+  assert.match(html, /\.made-with\s*\{[^}]*position:\s*fixed/, 'badge must float like the Shares badge');
+});
+
 test('tool cards are rendered as text, never as injected HTML', () => {
   assert.doesNotMatch(html, /innerHTML|insertAdjacentHTML|document\.write/);
 });
@@ -51,7 +59,8 @@ function assertValidList(list, file) {
   for (const t of list) {
     assert.ok(Number.isInteger(t.day) && t.day >= 1 && t.day <= CHALLENGE_DAYS, `day ${t.day} out of range`);
     assert.ok(t.name && t.blurb, `day ${t.day} needs a name and a blurb`);
-    assert.match(t.url, /^https:\/\//, `day ${t.day} link must be https`);
+    // Straight to the Share host: the omnisc.io short link is a second domain that can fail to resolve.
+    assert.match(t.url, /^https:\/\/shares\.omniscio\.com\/s\/[a-z0-9]+$/, `day ${t.day} must link straight to shares.omniscio.com`);
     if (t.shot !== undefined) {
       assert.match(t.shot, /^shots\/[a-z0-9-]+\.png$/, `day ${t.day} shot must be a shots/*.png path`);
       assert.ok(existsSync(join(DOCS, t.shot)), `day ${t.day} shot ${t.shot} is missing`);
