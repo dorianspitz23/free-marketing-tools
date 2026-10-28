@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs');
 const html = readFileSync(join(DOCS, 'index.html'), 'utf8');
 const tools = JSON.parse(readFileSync(join(DOCS, 'tools.json'), 'utf8'));
+const upcoming = JSON.parse(readFileSync(join(DOCS, '..', 'upcoming.json'), 'utf8'));
 const CHALLENGE_DAYS = 10;
 const OG_SIZE = { width: 1200, height: 630 };
 
@@ -42,12 +43,12 @@ test('tool cards are rendered as text, never as injected HTML', () => {
   assert.doesNotMatch(html, /innerHTML|insertAdjacentHTML|document\.write/);
 });
 
-test('tools.json: one entry per challenge day, complete, https links, in day order', () => {
-  assert.ok(Array.isArray(tools) && tools.length > 0, 'tools.json is a non-empty list');
-  const days = tools.map((t) => t.day);
-  assert.deepEqual(days, [...days].sort((a, b) => a - b), 'entries are in day order');
-  assert.equal(new Set(days).size, days.length, 'no day appears twice');
-  for (const t of tools) {
+function assertValidList(list, file) {
+  assert.ok(Array.isArray(list), `${file} is a list`);
+  const days = list.map((t) => t.day);
+  assert.deepEqual(days, [...days].sort((a, b) => a - b), `${file} entries are in day order`);
+  assert.equal(new Set(days).size, days.length, `no day appears twice in ${file}`);
+  for (const t of list) {
     assert.ok(Number.isInteger(t.day) && t.day >= 1 && t.day <= CHALLENGE_DAYS, `day ${t.day} out of range`);
     assert.ok(t.name && t.blurb, `day ${t.day} needs a name and a blurb`);
     assert.match(t.url, /^https:\/\//, `day ${t.day} link must be https`);
@@ -56,6 +57,17 @@ test('tools.json: one entry per challenge day, complete, https links, in day ord
       assert.ok(existsSync(join(DOCS, t.shot)), `day ${t.day} shot ${t.shot} is missing`);
     }
   }
+}
+
+test('tools.json: one entry per challenge day, complete, https links, in day order', () => {
+  assert.ok(tools.length > 0, 'tools.json is a non-empty list');
+  assertValidList(tools, 'tools.json');
+});
+
+test('upcoming.json: finished but unreleased days are valid and come after every live day', () => {
+  assertValidList(upcoming, 'upcoming.json');
+  const lastLive = Math.max(...tools.map((t) => t.day));
+  for (const t of upcoming) assert.ok(t.day > lastLive, `day ${t.day} is live already; remove it from upcoming.json`);
 });
 
 test('og.png is a 1200x630 PNG', () => {

@@ -53,7 +53,7 @@ ship.
 ```
 docs/                 the hub, served by GitHub Pages
   index.html          renders tools.json; link-preview tags stay Omniscio-free
-  tools.json          one entry per day: day, name, blurb, url, shot
+  tools.json          one entry per released day: day, name, blurb, url, shot
   shots/<tool>.png    card thumbnails (written by render-shots.cjs)
   mark.svg            the brand mark
   og.png              the 1200x630 link-preview image
@@ -66,6 +66,7 @@ scripts/
   render-og.cjs       regenerates docs/og.png from og-card.html
   render-shots.cjs    renders each dist/<tool>.html into docs/shots/<tool>.png
 tests/hub.test.mjs    hub rules: neutral preview, valid tools.json, Built with Omniscio
+upcoming.json         finished tools waiting for their day, same shape as docs/tools.json
 ```
 
 ## Getting started
@@ -90,7 +91,10 @@ npm run check:ui      # phone + desktop checks (needs Playwright + Chrome)
    The page check serves each tool under the Share's sandbox rules; if the tool copies to the
    clipboard, test every fallback (see the UTM tool's checks).
 3. Publish `dist/<name>.html` as an Omniscio Share that never expires.
-4. Add one entry to `docs/tools.json` (`day`, `name`, `blurb`, `url`, `shot: "shots/<name>.png"`) and push. The hub fills that day's slot itself.
+4. Add one entry (`day`, `name`, `blurb`, `url`, `shot: "shots/<name>.png"`) to `upcoming.json`.
+   Tools are built ahead of their day, and the hub must only show days already posted on X.
+5. On the tool's day, move its entry from `upcoming.json` to the end of `docs/tools.json` and push.
+   The hub fills that day's slot itself.
 
 ### Regenerating the preview image
 
