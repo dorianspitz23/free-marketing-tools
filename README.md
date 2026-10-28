@@ -9,7 +9,7 @@
 ![Node](https://img.shields.io/badge/Node-%E2%89%A518-339933?logo=node.js&logoColor=white)
 ![GitHub Pages](https://img.shields.io/badge/hub-GitHub%20Pages-222?logo=github)
 
-[Open the hub](https://dorianspitz23.github.io/free-marketing-tools/) · Built with [Omniscio](https://omniscio.com)
+[Open the hub](https://freemarketingtools.github.io/) · Built with [Omniscio](https://omniscio.com)
 
 </div>
 
