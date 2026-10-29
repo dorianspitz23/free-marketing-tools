@@ -5,5 +5,12 @@
     "blurb": "See exactly where Google cuts your title, meta description and search ad, by real pixel width, on desktop and mobile side by side.",
     "url": "https://shares.omniscio.com/s/rq7nhrxdcvfe5t3c",
     "shot": "shots/serp.png"
+  },
+  {
+    "day": 4,
+    "name": "Search ad checker",
+    "blurb": "Catch the responsive search ad mistakes Google's editor lets through: limits, near-duplicates, pins that box you in, and banned punctuation. Shuffle through the real ads your pins allow.",
+    "url": "https://shares.omniscio.com/s/600e4b7d39f910ef7581a18bbcfa9a77e871cdbafb131b5817549a72b5c53058",
+    "shot": "shots/rsa.png"
   }
 ]

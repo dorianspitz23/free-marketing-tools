@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search ad checker</title>
+<meta name="description" content="Check a Google Ads responsive search ad for the mistakes the editor lets through, and preview the real ads your pins allow.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  :root { --amber: #f5b642; --amber-soft: rgba(245, 182, 66, .14); --desk-width: 628px; }
+  .tool { max-width: 1120px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-5); }
+  .top { margin-bottom: var(--space-3); }
+  .top h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.02; margin: var(--space-2) 0 var(--space-2); letter-spacing: -.035em; }
+  .top h1 span { color: var(--lime); }
+  .top p { margin: 0; max-width: 58ch; color: var(--muted); }
+
+  .layout { display: grid; gap: var(--space-3); grid-template-areas: "hero" "previews" "inputs"; }
+  @media (min-width: 980px) {
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "inputs hero" "inputs previews"; align-items: start; }
+  }
+
+  .btn { min-height: var(--tap); padding: 0 20px; border-radius: var(--radius-sm); border: 1px solid var(--lime); background: var(--lime); color: var(--lime-ink); font: 650 .95rem var(--font); cursor: pointer; white-space: nowrap; }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .4; cursor: default; filter: none; }
+
+  /* Result: how many ads the pins allow, and what to fix */
+  .hero { grid-area: hero; padding: var(--space-4) var(--space-3) var(--space-3); overflow: hidden; position: relative; }
+  .hero::before { content: ""; position: absolute; inset: -40% -20% auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(var(--lime-soft), transparent 70%); pointer-events: none; }
+  .hero[data-state="reject"]::before { background: radial-gradient(var(--coral-soft), transparent 70%); }
+  .hero[data-state="weak"]::before { background: radial-gradient(var(--amber-soft), transparent 70%); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); position: relative; }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 7px 10px; border-radius: 999px; color: var(--lime-ink); background: var(--lime); white-space: nowrap; }
+  .chip[data-state="reject"] { background: var(--coral); color: #1a0705; }
+  .chip[data-state="weak"] { background: var(--amber); color: #1d1405; }
+  .big { position: relative; font-size: clamp(3.6rem, 13vw, 5.6rem); font-weight: 800; line-height: .95; margin: var(--space-3) 0 var(--space-1); color: var(--lime); }
+  .sub { position: relative; margin: 0; color: var(--muted); font-size: .95rem; }
+  .sub b { color: var(--text); font-weight: 600; }
+  .warnings { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-1); position: relative; }
+  .warning { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--space-2); padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); font-size: .9rem; line-height: 1.4; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); flex: none; }
+  .warning[data-level="weak"] .dot { background: var(--amber); }
+  .clear { display: flex; align-items: center; gap: 8px; color: var(--lime); font-size: .92rem; margin: var(--space-3) 0 0; position: relative; }
+  .clear .dot { background: var(--lime); }
+  .key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); color: var(--faint); font-size: .82rem; margin: var(--space-3) 0 0; position: relative; }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+  .key .weak { background: var(--amber); }
+
+  /* Inputs */
+  form { grid-area: inputs; display: grid; gap: var(--space-2); }
+  fieldset { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); min-width: 0; }
+  legend { padding: 0 6px; margin-left: -6px; }
+  .field { display: grid; gap: 8px; padding: var(--space-2) 0; border-top: 1px solid var(--line); }
+  legend + .field, legend + div > .field:first-child { border-top: 0; }
+  .field label { font-weight: 600; font-size: .95rem; display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+  .field label small { font-weight: 400; color: var(--faint); font-size: .8rem; }
+  .asset { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .field input, .field textarea, .field select {
+    width: 100%; min-height: var(--tap); padding: 0 14px;
+    font: 500 .98rem var(--font); color: var(--text);
+    background: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    transition: border-color .15s ease;
+  }
+  .field textarea { padding: 11px 14px; line-height: 1.5; resize: vertical; min-height: 96px; }
+  .field select { width: auto; padding: 0 10px; color: var(--muted); cursor: pointer; }
+  .field select[data-pinned="true"] { color: var(--lime); border-color: var(--lime); }
+  .field input:hover, .field textarea:hover, .field select:hover { border-color: var(--faint); }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px var(--lime-soft); }
+  .field [data-over="true"] { border-color: var(--coral); }
+  .count { font: 600 .78rem var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
+  .count[data-over="true"] { color: var(--coral); }
+  .paths { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+
+  /* Previews: a light Google page inside the dark tool */
+  .previews { grid-area: previews; padding: var(--space-3); display: grid; gap: var(--space-3); min-width: 0; }
+  .previews > div { min-width: 0; }
+  .shuffle-row { flex-wrap: wrap; }
+  .shuffle-row .which { color: var(--muted); font-size: .9rem; }
+  .screen-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+  .desk-wrap { overflow: hidden; border-radius: var(--radius-sm); }
+  .desk { width: var(--desk-width); transform-origin: top left; }
+  .g { background: #fff; color: #202124; font-family: Arial, sans-serif; border-radius: var(--radius-sm); }
+  .desk.g { padding: 18px 14px 26px; }
+  .g-bar { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 18px; margin-bottom: 22px; border-radius: 999px; border: 1px solid #dfe1e5; box-shadow: 0 1px 6px rgba(32, 33, 36, .12); font-size: 16px; color: #202124; overflow: hidden; white-space: nowrap; }
+  .g-bar::before { content: ""; width: 14px; height: 14px; border: 2px solid #9aa0a6; border-radius: 50%; flex: none; }
+  .g-sponsored { font-weight: 700; font-size: 14px; margin: 0 0 8px; }
+  .g-site { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .g-fav { width: 28px; height: 28px; border-radius: 50%; background: #f1f3f4; border: 1px solid #dadce0; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #4d5156; text-transform: uppercase; flex: none; }
+  .g-name { font-size: 14px; line-height: 20px; color: #202124; }
+  .g-crumb { font-size: 12px; line-height: 18px; color: #4d5156; overflow-wrap: anywhere; }
+  .g-title { display: block; color: #1a0dab; margin: 0 0 4px; overflow-wrap: anywhere; }
+  .desk .g-title { font-size: 20px; line-height: 26px; }
+  .phone .g-title { font-size: 16px; line-height: 22px; }
+  .g-desc { font-size: 14px; line-height: 22px; color: #4d5156; overflow-wrap: anywhere; }
+  .desk .g-desc { max-width: 600px; }
+  .g-empty { color: #9aa0a6; }
+  .phone { width: min(372px, 100%); padding: 12px; border-radius: 34px; background: #050608; border: 1px solid var(--line-strong); }
+  .phone .g { padding: 16px 14px 20px; border-radius: 24px; }
+  .phone .g-bar { height: 40px; margin-bottom: 16px; font-size: 14px; }
+  .phone .g-site { gap: 10px; }
+
+  .why { color: var(--muted); font-size: .88rem; line-height: 1.6; padding: var(--space-3); margin-top: var(--space-3); }
+  .why p { margin: 0 0 var(--space-2); }
+  .why p:last-child { margin-bottom: 0; }
+  .why b { color: var(--text); }
+
+  footer { margin-top: var(--space-4); }
+  [hidden] { display: none !important; }
+  @media (max-width: 520px) { .previews, .hero { padding: var(--space-3) var(--space-2) var(--space-2); } }
+</style>
+</head>
+<body>
+<main class="tool">
+  <header class="top">
+    <span class="label">Free tool · Day 4 of 10</span>
+    <h1>Search ad <span>checker</span></h1>
+    <p>Check a responsive search ad for the mistakes Google’s editor lets through: limits, near-duplicates, pins that box you in, and the punctuation and capitals Google rejects. Then shuffle through the real ads your pins allow.</p>
+  </header>
+
+  <div class="layout">
+    <form id="ad" novalidate autocomplete="off">
+      <fieldset id="headlines"><legend class="label">Headlines · 3 to 15</legend></fieldset>
+      <fieldset id="descriptions"><legend class="label">Descriptions · 2 to 4</legend></fieldset>
+      <fieldset>
+        <legend class="label">Link</legend>
+        <div class="field"><label for="url">Final URL <small>Only the domain is shown</small></label><input id="url" inputmode="url" spellcheck="false"></div>
+        <div class="paths">
+          <div class="field"><label for="path1">Path 1 <span class="count" id="count-path1"></span></label><input id="path1" spellcheck="false"></div>
+          <div class="field"><label for="path2">Path 2 <span class="count" id="count-path2"></span></label><input id="path2" spellcheck="false"></div>
+        </div>
+      </fieldset>
+    </form>
+
+    <section class="hero panel" id="hero" data-state="ok" aria-label="Checks">
+      <div class="row">
+        <span class="label">Ads your pins allow</span>
+        <span class="chip" id="chip" aria-live="polite"></span>
+      </div>
+      <div class="big num" id="count"></div>
+      <p class="sub" id="count-note"></p>
+      <ul class="warnings" id="warnings"></ul>
+      <p class="clear" id="clear" hidden><span class="dot"></span>Nothing to fix. Google can test every combination.</p>
+      <p class="key"><span><span class="dot"></span>Google rejects it</span><span><span class="dot weak"></span>Weakens the ad</span></p>
+    </section>
+
+    <section class="previews panel" aria-label="Preview">
+      <div class="row shuffle-row">
+        <span class="which" id="which" aria-live="polite"></span>
+        <button type="button" class="btn" id="shuffle">Shuffle</button>
+      </div>
+      <div>
+        <div class="screen-head"><span class="label">Desktop</span><span class="label">Mock-up</span></div>
+        <div class="desk-wrap" id="desk-wrap"><div class="desk g" id="desk"></div></div>
+      </div>
+      <div>
+        <div class="screen-head"><span class="label">Mobile</span></div>
+        <div class="phone"><div class="g" id="mobile"></div></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="why panel">
+    <p><b>How Google builds the ad.</b> It picks up to 3 of your headlines and 2 of your descriptions for each search. A pinned line only ever shows in its own spot, and a spot with exactly one pin shows that line every time. The count above is every full ad your pins still allow. Rules from Google’s help on <a href="https://support.google.com/google-ads/answer/7684791" target="_blank" rel="noopener">responsive search ads</a>, <a href="https://support.google.com/google-ads/answer/9921843" target="_blank" rel="noopener">Ad Strength</a> and <a href="https://support.google.com/adspolicy/answer/14847994" target="_blank" rel="noopener">punctuation</a>.</p>
+    <p><b>Two checks are estimates.</b> Google gives no minimum for unique headlines, so 8 is a rule of thumb for good Ad Strength. ALL-CAPS words of 4 letters or more are flagged; short acronyms pass, and a brand name in capitals can be approved on request.</p>
+  </section>
+
+  <footer>
+    <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="../../docs/orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
+  </footer>
+</main>
+<script src="calc.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const { MAX, POSITIONS, EXAMPLE, counters, checkAd, combinations, combinationAt, shuffleIndex, displayUrl } = window.RsaCalc;
+    const KINDS = ['headline', 'description'];
+    const HEADLINE_JOIN = ' | ';
+    const fmt = (n) => n.toLocaleString('en-US');
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const fieldName = (field) => field.replace(/^(\w)(\D+)(\d+)$/, (_, a, b, n) => `${a.toUpperCase()}${b} ${n}`);
+    const names = (fields) => fields.map(fieldName).join(', ');
+    const MESSAGES = {
+      clear: 'All clear', toFix: (n) => `${n} to fix`, sponsored: 'Sponsored', search: 'search',
+      noHeadline: 'Your headlines', which: (i, total) => `Ad ${fmt(i + 1)} of ${fmt(total)}`,
+      countNote: (c) => (c.countUnpinned > c.count ? `full ads (3 headlines + 2 descriptions). Without pins: ${fmt(c.countUnpinned)}.` : 'full ads (3 headlines + 2 descriptions).'),
+      pinOption: (n) => (n ? `Pin ${n}` : 'No pin'),
+      pinLabel: (kind, n) => `Pin ${kind} ${n} to a position`,
+      warnings: {
+        overLimit: (w) => `Over the character limit: ${names(w.fields)}. Google won’t accept it.`,
+        tooFewHeadlines: (w) => `Only ${plural(w.count, 'headline')}. Google needs at least ${w.min}.`,
+        tooFewDescriptions: (w) => `Only ${plural(w.count, 'description')}. Google needs at least ${w.min}.`,
+        headlineExclamation: (w) => `“!” in ${names(w.fields)}. Google doesn’t allow exclamation marks in headlines.`,
+        descriptionExclamations: (w) => `More than one “!” in ${names(w.fields)}. Google allows one per description.`,
+        repeatedPunctuation: (w) => `Repeated punctuation like “!!” or “??” in ${names(w.fields)}. Google rejects it.`,
+        allCaps: (w) => `ALL-CAPS ${w.words.map((x) => `“${x}”`).join(', ')}. Google rejects capitals used for emphasis.`,
+        duplicate: (w) => `${w.fields.map(fieldName).join(' and ')} say the same thing. Make each line add something new.`,
+        fewUnique: (w) => `Only ${w.count} unique headlines. Aim for ${w.target} or more (up to 15) for good Ad Strength.`,
+        pinnedAlone: (w) => `${fieldName(w.field)} is the only ${w.kind} pinned to position ${w.position}, so it shows in every ad. Pin 2 or 3 there.`,
+        positionEmpty: (w) => `Nothing can fill ${w.kind} position ${w.position}: the pins send every ${w.kind} elsewhere.`,
+        allPinned: () => 'Every headline is pinned, so Google can hardly test combinations.',
+        noFullAd: () => 'Your pins leave no way to fill all 3 headline and 2 description spots.'
+      }
+    };
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    let combos = null;
+    let current = 0;
+
+    // --- Asset rows: text, live counter and a pin picker, built once from the example ---
+    function pinSelect(kind, n, pin) {
+      const select = el('select');
+      select.id = `pin-${kind}${n}`;
+      select.setAttribute('aria-label', MESSAGES.pinLabel(kind, n));
+      for (let p = 0; p <= POSITIONS[kind]; p++) {
+        const option = el('option', '', MESSAGES.pinOption(p));
+        option.value = String(p);
+        select.append(option);
+      }
+      select.value = String(pin || 0);
+      return select;
+    }
+
+    function assetRow(kind, n, example) {
+      const id = `${kind}${n}`;
+      const field = el('div', 'field');
+      const label = el('label', '', fieldName(id));
+      label.htmlFor = id;
+      const count = el('span', 'count');
+      count.id = `count-${id}`;
+      label.append(count);
+      const input = el(kind === 'headline' ? 'input' : 'textarea');
+      input.id = id;
+      input.value = example ? example.text : '';
+      if (kind === 'description') input.rows = 3;
+      const row = el('div', 'asset');
+      row.append(input, pinSelect(kind, n, example && example.pin));
+      field.append(label, row);
+      return field;
+    }
+
+    function buildRows() {
+      for (const kind of KINDS) {
+        const rows = [];
+        for (let n = 1; n <= MAX[kind]; n++) rows.push(assetRow(kind, n, EXAMPLE[`${kind}s`][n - 1]));
+        $(`${kind}s`).append(...rows);
+      }
+      for (const id of ['url', 'path1', 'path2']) $(id).value = EXAMPLE[id];
+    }
+
+    function readAd() {
+      const assets = (kind) => Array.from({ length: MAX[kind] }, (_, i) => ({
+        text: $(`${kind}${i + 1}`).value, pin: Number($(`pin-${kind}${i + 1}`).value)
+      }));
+      return { headlines: assets('headline'), descriptions: assets('description'), url: $('url').value, path1: $('path1').value, path2: $('path2').value };
+    }
+
+    // --- Result panel ---
+    function renderCounters(ad) {
+      for (const c of counters(ad)) {
+        $(`count-${c.field}`).textContent = `${c.count}/${c.limit}`;
+        $(`count-${c.field}`).dataset.over = String(c.over);
+        $(c.field).dataset.over = String(c.over);
+      }
+    }
+
+    function renderPins() {
+      for (const select of document.querySelectorAll('select')) select.dataset.pinned = String(select.value !== '0');
+    }
+
+    function renderChecks(warnings) {
+      $('warnings').replaceChildren(...warnings.map((w) => {
+        const li = el('li', 'warning');
+        li.dataset.level = w.level;
+        li.append(el('span', 'dot'), el('span', '', MESSAGES.warnings[w.code](w)));
+        return li;
+      }));
+      const state = warnings.some((w) => w.level === 'reject') ? 'reject' : (warnings.length ? 'weak' : 'ok');
+      $('clear').hidden = warnings.length > 0;
+      $('chip').textContent = warnings.length ? MESSAGES.toFix(warnings.length) : MESSAGES.clear;
+      $('chip').dataset.state = state;
+      $('hero').dataset.state = state;
+      $('count').textContent = fmt(combos.count);
+      $('count-note').textContent = MESSAGES.countNote(combos);
+    }
+
+    // --- Preview ---
+    function siteRow(url) {
+      const name = url.split('/')[0];
+      const row = el('div', 'g-site');
+      const text = el('div');
+      text.append(el('div', 'g-name', name), el('div', 'g-crumb', url));
+      row.append(el('span', 'g-fav', name.charAt(0) || '?'), text);
+      return row;
+    }
+
+    function adResult(ad, shown) {
+      const headline = shown.headlines.join(HEADLINE_JOIN);
+      return [
+        el('div', 'g-bar', shown.headlines.length ? shown.headlines[0].toLowerCase() : MESSAGES.search),
+        el('p', 'g-sponsored', MESSAGES.sponsored),
+        siteRow(displayUrl(ad)),
+        el('span', headline ? 'g-title' : 'g-title g-empty', headline || MESSAGES.noHeadline),
+        el('div', 'g-desc', shown.descriptions.join(' '))
+      ];
+    }
+
+    const totalShown = () => combos.headlines.length * combos.descriptions.length;
+
+    function renderPreview(ad) {
+      const shown = combinationAt(combos, current);
+      $('desk').replaceChildren(...adResult(ad, shown));
+      $('mobile').replaceChildren(...adResult(ad, shown));
+      $('which').textContent = MESSAGES.which(current, combos.count || totalShown());
+      $('shuffle').disabled = totalShown() < 2;
+      fitDesktop();
+    }
+
+    // The desktop ad keeps its real 600px column and shrinks as a picture on small screens.
+    function fitDesktop() {
+      const desk = $('desk');
+      const scale = Math.min(1, $('desk-wrap').clientWidth / desk.offsetWidth);
+      desk.style.transform = scale < 1 ? `scale(${scale})` : '';
+      $('desk-wrap').style.height = `${desk.offsetHeight * scale}px`;
+    }
+
+    function update() {
+      const ad = readAd();
+      combos = combinations(ad);
+      current = Math.min(current, totalShown() - 1);
+      renderCounters(ad);
+      renderPins();
+      renderChecks(checkAd(ad));
+      renderPreview(ad);
+    }
+
+    buildRows();
+    $('ad').addEventListener('input', update);
+    $('ad').addEventListener('submit', (e) => e.preventDefault());
+    $('shuffle').addEventListener('click', () => {
+      current = shuffleIndex(totalShown(), current);
+      renderPreview(readAd());
+    });
+    window.addEventListener('resize', fitDesktop);
+    update();
+  })();
+</script>
+</body>
+</html>
