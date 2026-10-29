@@ -23,6 +23,7 @@
 
   const LIMITS = { headline: 30, description: 90, path: 15 };
   const MIN = { headline: 3, description: 2 };
+  const MAX = { headline: 15, description: 4 };
   const POSITIONS = { headline: 3, description: 2 };
   const STRONG_HEADLINES = 8; // estimate, see above
   const ALL_CAPS = /\b[A-Z]{4,}\b/g;
@@ -201,7 +202,7 @@
   }
 
   return {
-    LIMITS, MIN, POSITIONS, STRONG_HEADLINES, EXAMPLE, normalize, similar, counters, checkAd,
+    LIMITS, MIN, MAX, POSITIONS, STRONG_HEADLINES, EXAMPLE, normalize, similar, counters, checkAd,
     arrangements, combinations, combinationAt, shuffleIndex, displayUrl
   };
 });

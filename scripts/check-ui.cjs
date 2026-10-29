@@ -178,7 +178,40 @@ async function checkSerp(page) {
   return await checkSerpOrganic(page) || await checkSerpAd(page);
 }
 
-const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp };
+// --- RSA: the example's mistakes are flagged; counters, pins and Shuffle drive the preview ---
+
+async function checkRsaExample(page) {
+  if (await page.textContent('#count') !== '252') return `example combination count is ${await page.textContent('#count')}, expected 252`;
+  if (!/7 to fix/.test(await page.textContent('#chip'))) return `example chip says ${await page.textContent('#chip')}`;
+  if (await page.getAttribute('#count-headline8', 'data-over') !== 'true') return '35-character headline counter is not coral';
+  if (!/Sponsored/.test(await page.textContent('#mobile'))) return 'ad preview is not marked Sponsored';
+  return (await page.textContent('#desk .g-title')).startsWith('Waterproof Rain Jackets') ? null : 'pinned headline 1 is not first';
+}
+
+async function checkRsaShuffle(page) {
+  const before = await page.textContent('#desk .g-title') + await page.textContent('#desk .g-desc');
+  await page.click('#shuffle');
+  const after = await page.textContent('#desk .g-title') + await page.textContent('#desk .g-desc');
+  if (before === after) return 'Shuffle did not draw a different ad';
+  return (await page.textContent('#mobile .g-title')).startsWith('Waterproof Rain Jackets') ? null : 'Shuffle broke the pin';
+}
+
+async function checkRsaEdits(page) {
+  await page.selectOption('#pin-headline1', '0');
+  if (await page.textContent('#count') !== '2,016') return 'unpinning did not raise the count to 2,016';
+  await page.fill('#headline5', 'Shop Our New Arrivals');
+  if (/“!” in/.test(await page.textContent('#warnings'))) return 'headline ! warning did not clear';
+  await page.fill('#headline1', 'x'.repeat(31));
+  if (await page.textContent('#count-headline1') !== '31/30') return 'headline counter did not show 31/30';
+  const scroll = await sidewaysScroll(page);
+  return scroll > 0 ? `edited view scrolls sideways by ${scroll}px` : null;
+}
+
+async function checkRsa(page) {
+  return await checkRsaExample(page) || await checkRsaShuffle(page) || await checkRsaEdits(page);
+}
+
+const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa };
 
 (async () => {
   const server = serve().listen(0);
