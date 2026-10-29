@@ -63,7 +63,10 @@
       .filter((a) => a.text);
   }
 
-  const counter = (field, text, limit) => ({ field, count: chars(text), limit, over: chars(text) > limit });
+  function counter(field, text, limit) {
+    const count = chars(text);
+    return { field, count, limit, over: count > limit };
+  }
 
   function counters(ad) {
     return [
@@ -129,12 +132,18 @@
     return (current + 1 + Math.floor(random() * (total - 1))) % total;
   }
 
-  function displayUrl(ad) {
-    const raw = clean(ad.url);
-    let site = raw;
-    try { site = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`).hostname.replace(/^www\./, ''); } catch { /* keep as typed */ }
-    return [site, clean(ad.path1), clean(ad.path2)].filter(Boolean).join('/');
+  // The domain without www, or the text as typed when it is not a link.
+  function siteName(raw) {
+    const text = clean(raw);
+    try {
+      return new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`).hostname.replace(/^www\./, '');
+    } catch {
+      return text;
+    }
   }
+
+  // "northpeak.com/rain-jackets/mens", the green line Google shows under the site name.
+  const displayUrl = (ad) => [siteName(ad.url), clean(ad.path1), clean(ad.path2)].filter(Boolean).join('/');
 
   // --- Checks. Each warning: { code, level: 'reject' (Google won't run it) | 'weak' (hurts the ad) } ---
 

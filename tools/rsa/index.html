@@ -261,6 +261,9 @@
         $(`count-${c.field}`).dataset.over = String(c.over);
         $(c.field).dataset.over = String(c.over);
       }
+    }
+
+    function renderPins() {
       for (const select of document.querySelectorAll('select')) select.dataset.pinned = String(select.value !== '0');
     }
 
@@ -325,6 +328,7 @@
       combos = combinations(ad);
       current = Math.min(current, totalShown() - 1);
       renderCounters(ad);
+      renderPins();
       renderChecks(checkAd(ad));
       renderPreview(ad);
     }
