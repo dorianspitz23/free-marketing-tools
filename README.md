@@ -34,6 +34,13 @@ ship.
   character count. Live width meters for the title and description, warnings for cut text and a focus
   keyword missing from the title, and 30/90/15 character counters for ad headlines, descriptions and
   paths. The pixel limits are commonly measured estimates; Google doesn't publish them.
+- **Day 4 — Search ad checker.** Checks a responsive search ad (up to 15 headlines and 4 descriptions,
+  each with an optional pin) for what Google's editor lets through: lines over the limit, duplicates and
+  near-duplicates, too few assets or too few unique headlines, pins that show one line every time or
+  leave a spot nothing can fill, and the punctuation and capitals Google rejects. A Sponsored preview on
+  desktop and mobile shows one ad the pins allow, Shuffle draws another, and a big number counts every
+  full ad the pins leave. Rules cite Google's help pages; the 8-headline floor and the ALL-CAPS rule are
+  labelled estimates.
 - **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A floating Made with Omniscio badge, the
   same one an Omniscio Share carries, and a link preview in the hub's own look that stays neutral for X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.
