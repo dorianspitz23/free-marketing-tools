@@ -275,6 +275,8 @@ test('the headline reads properly at every count', () => {
   assert.equal(headline(checkFeed(MIXED)), '3 of 4 products need fixing');
   assert.equal(headline({ total: 9, bad: 1 }), '1 of 9 products needs fixing');
   assert.equal(headline({ total: 1, bad: 1 }), '1 of 1 product needs fixing');
+  assert.equal(headline({ total: 50000, bad: 25000 }), '25,000 of 50,000 products need fixing');
+  assert.equal(headline({ total: 50000, bad: 0 }), 'All 50,000 products look clean');
   assert.equal(headline({ total: 9, bad: 0 }), 'All 9 products look clean');
   assert.equal(headline({ total: 1, bad: 0 }), 'Your 1 product looks clean');
 });

@@ -44,6 +44,7 @@
   const PROMO_TEXT = /\b(free (shipping|delivery|returns)|\d+\s?% off|buy now|best price|limited (time|offer)|on sale|clearance|order now|cheapest)\b/i;
 
   const SEVERITY_ORDER = { error: 0, warning: 1 };
+  const count = (n) => n.toLocaleString('en-US');
 
   // --- Parsing: one pass over the text, so the cost grows with its length and nothing else ---
 
@@ -184,7 +185,7 @@
     const condition = get('condition').toLowerCase();
     add(id.length > MAX_ID, () => rejected('id', 'ID too long', `This id has ${id.length} characters. The limit is ${MAX_ID}.`));
     add(description.length > MAX_DESCRIPTION, () => rejected('description', 'Description too long',
-      `This description has ${description.length.toLocaleString('en-US')} characters. The limit is ${MAX_DESCRIPTION.toLocaleString('en-US')}.`));
+      `This description has ${count(description.length)} characters. The limit is ${count(MAX_DESCRIPTION)}.`));
     add(get('price') !== '' && !PRICE.test(get('price')), () => rejected('price', 'Price format', 'A price is a number plus a 3-letter currency, like 15.00 USD.'));
     add(availability !== '' && !AVAILABILITY.includes(availability), () => rejected('availability', 'Availability value', `Use one of ${AVAILABILITY.join(', ')}.`));
     add(condition !== '' && !CONDITIONS.includes(condition), () => rejected('condition', 'Condition value', `Use one of ${CONDITIONS.join(', ')}.`));
@@ -267,8 +268,8 @@
   }
 
   function headline({ total, bad }) {
-    if (bad === 0) return total === 1 ? 'Your 1 product looks clean' : `All ${total} products look clean`;
-    return `${bad} of ${total} ${total === 1 ? 'product' : 'products'} ${bad === 1 ? 'needs' : 'need'} fixing`;
+    if (bad === 0) return total === 1 ? 'Your 1 product looks clean' : `All ${count(total)} products look clean`;
+    return `${count(bad)} of ${count(total)} ${total === 1 ? 'product' : 'products'} ${bad === 1 ? 'needs' : 'need'} fixing`;
   }
 
   function problemList(result) {
@@ -282,5 +283,5 @@
     return lines.join('\n');
   }
 
-  return { RENDER_LIMIT, parseFeed, checkFeed, headline, problemList };
+  return { RENDER_LIMIT, count, parseFeed, checkFeed, headline, problemList };
 });
