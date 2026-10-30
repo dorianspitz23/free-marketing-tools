@@ -13,6 +13,7 @@ const VIEWPORTS = [{ width: 390, height: 844, isMobile: true }, { width: 1280, h
 const CHALLENGE_DAYS = 10;
 const TYPES = { '.html': 'text/html', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
 const COPIED = 'Copied ✓';
+const SCREENSHOT_MS = 120000; // A busy machine can take over the default 30 seconds.
 
 function serve() {
   return http.createServer((req, res) => {
@@ -275,18 +276,28 @@ async function checkFeedFiles(page) {
 async function checkFeedHuge(page) {
   const rows = [];
   for (let i = 0; i < HUGE_ROWS; i++) rows.push(feedRow(i, i % 2 ? '59.00 USD' : '$59'));
+  const text = `${FEED_HEADER}\n${rows.join('\n')}`;
   const start = Date.now();
-  await page.fill('#feed', `${FEED_HEADER}\n${rows.join('\n')}`);
+  await page.evaluate((feed) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', feed);
+    document.getElementById('feed').dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }));
+  }, text);
   await headlineIs(page, '25,000 of 50,000 products need fixing');
   const took = Date.now() - start;
-  console.log(`  feed: ${HUGE_ROWS} rows checked and drawn in ${took}ms`);
+  console.log(`  feed: ${HUGE_ROWS} rows pasted, checked and drawn in ${took}ms`);
   if (took > HUGE_MAX_MS) return `50,000 rows took ${took}ms`;
+  if ((await page.inputValue('#feed')).length >= text.length / 10) return 'huge feed went into the text box';
+  if (!/every row is checked/.test(await page.textContent('#file-status'))) return 'huge feed did not explain the short text box';
   if (await page.locator('#table-body tr').count() !== RENDERED_ROWS) return 'huge feed did not cap the table';
   if (!/first 300 of 50,000/.test(await page.textContent('#cap'))) return 'huge feed did not say it capped the table';
   await page.check('#only-problems');
   if (!/first 300 of 25,000/.test(await page.textContent('#cap'))) return 'cap did not follow Show only problems';
-  await page.fill('#feed', '');
-  return null;
+  await page.fill('#feed', `${FEED_HEADER}\n${feedRow(1, '59.00 USD')}`);
+  await headlineIs(page, 'Your 1 product looks clean');
+  await page.setInputFiles('#file', { name: 'huge.csv', mimeType: 'text/csv', buffer: Buffer.from(text) });
+  await headlineIs(page, '25,000 of 50,000 products need fixing');
+  return (await page.inputValue('#feed')).length < text.length / 10 ? null : 'huge file went into the text box';
 }
 
 async function checkFeedBox(page) {
@@ -317,7 +328,8 @@ const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: chec
 (async () => {
   const server = serve().listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({ executablePath: CHROME, headless: true });
+  // Without a GPU process, screenshots keep working when the machine is short of memory.
+  const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--disable-gpu'] });
   const failures = [];
   fs.mkdirSync(path.join(ROOT, 'dist', 'screens'), { recursive: true });
   const targets = Object.entries(TOOL_CHECKS).map(([tool, check]) => [tool, `${base}/tool/${tool}`, check]);
@@ -325,7 +337,8 @@ const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: chec
     for (const vp of VIEWPORTS) {
       const { context, page, errors } = await openPage(browser, url, vp);
       const overflow = await sidewaysScroll(page);
-      await page.screenshot({ path: path.join(ROOT, 'dist', 'screens', `${name}-${vp.width}.png`), fullPage: true });
+      await page.screenshot({ path: path.join(ROOT, 'dist', 'screens', `${name}-${vp.width}.png`), fullPage: true, timeout: SCREENSHOT_MS })
+        .catch((e) => failures.push(`${name} @${vp.width}px screenshot: ${e.message.split('\n')[0]}`));
       const problem = await check(page);
       if (overflow > 0) failures.push(`${name} @${vp.width}px scrolls sideways by ${overflow}px`);
       if (errors.length) failures.push(`${name} @${vp.width}px console errors: ${errors.join(' | ')}`);
