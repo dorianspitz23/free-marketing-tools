@@ -211,7 +211,7 @@ RJ-108,"Northline Kids Puddle Rain Jacket, Blue, 10Y",Reflective trim and a room
     };
     const $ = (id) => document.getElementById(id);
     const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
-    let result = checkFeed('');
+    let result;
     let typingTimer = null;
     let bigFeed = null; // A big feed stays out of the text box: laying out megabytes there freezes the page.
 
