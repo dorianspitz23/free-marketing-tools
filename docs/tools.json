@@ -12,5 +12,12 @@
     "blurb": "Tagged links that land in the right GA4 channel. Flags capitals, spaces and mediums GA4 won't recognise, fixes them in one click, and does a whole spreadsheet at once.",
     "url": "https://shares.omniscio.com/s/xuep3rhd7va22ryy",
     "shot": "shots/utm.png"
+  },
+  {
+    "day": 3,
+    "name": "Search result preview",
+    "blurb": "See exactly where Google cuts your title, meta description and search ad, by real pixel width, on desktop and mobile side by side.",
+    "url": "https://shares.omniscio.com/s/rq7nhrxdcvfe5t3c",
+    "shot": "shots/serp.png"
   }
 ]
