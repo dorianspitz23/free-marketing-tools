@@ -211,7 +211,108 @@ async function checkRsa(page) {
   return await checkRsaExample(page) || await checkRsaShuffle(page) || await checkRsaEdits(page);
 }
 
-const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa };
+// --- Feed: the example's mistakes, the three ways Copy can go, files under the Share's sandbox, a huge paste ---
+
+const FEED_HEADER = 'id,title,description,link,image_link,availability,price,brand,gtin';
+const feedRow = (i, price) => `A${i},Rain jacket ${i},Dry.,https://e.com/${i},https://e.com/${i}.jpg,in_stock,${price},Northline,012345678905`;
+const HUGE_ROWS = 50000;
+const HUGE_MAX_MS = 20000;
+const RENDERED_ROWS = 300;
+
+const headlineIs = (page, text) => page.waitForFunction((t) => document.getElementById('headline').textContent === t, text, { timeout: HUGE_MAX_MS });
+
+async function checkFeedExample(page) {
+  if (await page.textContent('#headline') !== '5 of 9 products need fixing') return `example headline: ${await page.textContent('#headline')}`;
+  if (await page.textContent('#split') !== '4 would be rejected · 1 weakened') return `example split: ${await page.textContent('#split')}`;
+  if (await page.locator('#table-body tr').count() !== 9) return 'table did not list all 9 products';
+  if (await page.locator('#table-body td[data-severity="error"]').count() !== 4) return 'expected 4 coral cells';
+  if (await page.locator('#table-body td[data-severity="warning"]').count() !== 1) return 'expected 1 amber cell';
+  if (!/15\.00 USD/.test(await page.textContent('#table-body'))) return 'row reasons missing from the table';
+  await page.check('#only-problems');
+  if (await page.locator('#table-body tr').count() !== 5) return 'Show only problems did not hide clean rows';
+  await page.uncheck('#only-problems');
+  return await page.locator('#table-body tr').count() === 9 ? null : 'Show only problems did not switch back';
+}
+
+async function checkFeedCopy(page) {
+  await page.click('#copy');
+  await page.waitForTimeout(300);
+  if (await page.textContent('#copy') !== COPIED && !await page.isVisible('#copy-manual')) return 'Copy did nothing with the real browser APIs';
+  await stubClipboard(page, true);
+  await page.click('#copy');
+  const first = await page.evaluate(() => window.__copied);
+  if (!/^5 of 9 products need fixing\n\nRow 4 \(RJ-102\): /.test(first || '')) return `Clipboard API path copied: ${first}`;
+  await stubClipboard(page, false);
+  await stubCopyCommand(page, true);
+  await page.click('#copy');
+  if (await page.evaluate(() => window.__copied) !== first) return 'copy-command fallback did not copy the list';
+  await stubCopyCommand(page, false);
+  await page.click('#copy');
+  const manual = await page.evaluate(() => {
+    const box = document.getElementById('copy-manual');
+    return { shown: !box.hidden, value: box.value, selected: box.selectionStart === 0 && box.selectionEnd === box.value.length };
+  });
+  const told = /press (Ctrl|⌘)\+?C/i.test(await page.textContent('#copy-status'));
+  return manual.shown && manual.value === first && manual.selected && told ? null : 'manual fallback did not select the list';
+}
+
+async function checkFeedFiles(page) {
+  await page.setInputFiles('#file', { name: 'picked.csv', mimeType: 'text/csv', buffer: Buffer.from(`${FEED_HEADER}\n${feedRow(1, '59.00 USD')}`) });
+  await headlineIs(page, 'Your 1 product looks clean');
+  if (!/Read picked\.csv/.test(await page.textContent('#file-status'))) return 'file pick did not confirm';
+  await page.setInputFiles('#file', { name: 'catalog.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('PK') });
+  if (!/Save it as CSV/.test(await page.textContent('#file-status'))) return 'wrong file type was not refused';
+  // A real OS drag can't be driven from here; this is the same drop event carrying a real File.
+  await page.evaluate(([name, text]) => {
+    const data = new DataTransfer();
+    data.items.add(new File([text], name, { type: 'text/tab-separated-values' }));
+    for (const type of ['dragover', 'drop']) document.body.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+  }, ['dropped.tsv', `${FEED_HEADER.replace(/,/g, '\t')}\n${feedRow(1, '$59').replace(/,/g, '\t')}`]);
+  await headlineIs(page, '1 of 1 product needs fixing');
+  return /Read dropped\.tsv/.test(await page.textContent('#file-status')) ? null : 'drag and drop did not confirm';
+}
+
+async function checkFeedHuge(page) {
+  const rows = [];
+  for (let i = 0; i < HUGE_ROWS; i++) rows.push(feedRow(i, i % 2 ? '59.00 USD' : '$59'));
+  const start = Date.now();
+  await page.fill('#feed', `${FEED_HEADER}\n${rows.join('\n')}`);
+  await headlineIs(page, '25,000 of 50,000 products need fixing');
+  const took = Date.now() - start;
+  console.log(`  feed: ${HUGE_ROWS} rows checked and drawn in ${took}ms`);
+  if (took > HUGE_MAX_MS) return `50,000 rows took ${took}ms`;
+  if (await page.locator('#table-body tr').count() !== RENDERED_ROWS) return 'huge feed did not cap the table';
+  if (!/first 300 of 50,000/.test(await page.textContent('#cap'))) return 'huge feed did not say it capped the table';
+  await page.check('#only-problems');
+  if (!/first 300 of 25,000/.test(await page.textContent('#cap'))) return 'cap did not follow Show only problems';
+  await page.fill('#feed', '');
+  return null;
+}
+
+async function checkFeedBox(page) {
+  const box = await page.evaluate(() => {
+    const b = document.getElementById('table-box');
+    return { wider: b.scrollWidth > b.clientWidth, overflow: getComputedStyle(b).overflowX };
+  });
+  if (!box.wider || box.overflow !== 'auto') return `table does not scroll inside its box: ${JSON.stringify(box)}`;
+  const scroll = await sidewaysScroll(page);
+  return scroll > 0 ? `feed page scrolls sideways by ${scroll}px` : null;
+}
+
+async function checkFeedStates(page) {
+  await page.fill('#feed', 'just,some,words\nand,more,words');
+  await headlineIs(page, 'Nothing to check yet');
+  if (!/No header row/.test(await page.textContent('#notice'))) return 'missing header was not explained';
+  if (await page.isVisible('#results')) return 'table showed with no products';
+  return await page.isDisabled('#copy') ? null : 'Copy stayed live with nothing to copy';
+}
+
+async function checkFeed(page) {
+  return await checkFeedExample(page) || await checkFeedBox(page) || await checkFeedCopy(page)
+    || await checkFeedFiles(page) || await checkFeedHuge(page) || await checkFeedStates(page);
+}
+
+const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed };
 
 (async () => {
   const server = serve().listen(0);
