@@ -13,6 +13,7 @@ const VIEWPORTS = [{ width: 390, height: 844, isMobile: true }, { width: 1280, h
 const CHALLENGE_DAYS = 10;
 const TYPES = { '.html': 'text/html', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
 const COPIED = 'Copied ✓';
+const SCREENSHOT_MS = 120000; // A busy machine can take over the default 30 seconds.
 
 function serve() {
   return http.createServer((req, res) => {
@@ -211,12 +212,124 @@ async function checkRsa(page) {
   return await checkRsaExample(page) || await checkRsaShuffle(page) || await checkRsaEdits(page);
 }
 
-const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa };
+// --- Feed: the example's mistakes, the three ways Copy can go, files under the Share's sandbox, a huge paste ---
+
+const FEED_HEADER = 'id,title,description,link,image_link,availability,price,brand,gtin';
+const feedRow = (i, price) => `A${i},Rain jacket ${i},Dry.,https://e.com/${i},https://e.com/${i}.jpg,in_stock,${price},Northline,012345678905`;
+const HUGE_ROWS = 50000;
+const HUGE_MAX_MS = 20000;
+const RENDERED_ROWS = 300;
+
+const headlineIs = (page, text) => page.waitForFunction((t) => document.getElementById('headline').textContent === t, text, { timeout: HUGE_MAX_MS });
+
+async function checkFeedExample(page) {
+  if (await page.textContent('#headline') !== '5 of 9 products need fixing') return `example headline: ${await page.textContent('#headline')}`;
+  if (await page.textContent('#split') !== '4 would be rejected · 1 weakened') return `example split: ${await page.textContent('#split')}`;
+  if (await page.locator('#table-body tr').count() !== 9) return 'table did not list all 9 products';
+  if (await page.locator('#table-body td[data-severity="error"]').count() !== 4) return 'expected 4 coral cells';
+  if (await page.locator('#table-body td[data-severity="warning"]').count() !== 1) return 'expected 1 amber cell';
+  if (!/15\.00 USD/.test(await page.textContent('#table-body'))) return 'row reasons missing from the table';
+  await page.check('#only-problems');
+  if (await page.locator('#table-body tr').count() !== 5) return 'Show only problems did not hide clean rows';
+  await page.uncheck('#only-problems');
+  return await page.locator('#table-body tr').count() === 9 ? null : 'Show only problems did not switch back';
+}
+
+async function checkFeedCopy(page) {
+  await page.click('#copy');
+  await page.waitForTimeout(300);
+  if (await page.textContent('#copy') !== COPIED && !await page.isVisible('#copy-manual')) return 'Copy did nothing with the real browser APIs';
+  await stubClipboard(page, true);
+  await page.click('#copy');
+  const first = await page.evaluate(() => window.__copied);
+  if (!/^5 of 9 products need fixing\n\nRow 4 \(RJ-102\): /.test(first || '')) return `Clipboard API path copied: ${first}`;
+  await stubClipboard(page, false);
+  await stubCopyCommand(page, true);
+  await page.click('#copy');
+  if (await page.evaluate(() => window.__copied) !== first) return 'copy-command fallback did not copy the list';
+  await stubCopyCommand(page, false);
+  await page.click('#copy');
+  const manual = await page.evaluate(() => {
+    const box = document.getElementById('copy-manual');
+    return { shown: !box.hidden, value: box.value, selected: box.selectionStart === 0 && box.selectionEnd === box.value.length };
+  });
+  const told = /press (Ctrl|⌘)\+?C/i.test(await page.textContent('#copy-status'));
+  return manual.shown && manual.value === first && manual.selected && told ? null : 'manual fallback did not select the list';
+}
+
+async function checkFeedFiles(page) {
+  await page.setInputFiles('#file', { name: 'picked.csv', mimeType: 'text/csv', buffer: Buffer.from(`${FEED_HEADER}\n${feedRow(1, '59.00 USD')}`) });
+  await headlineIs(page, 'Your 1 product looks clean');
+  if (!/Read picked\.csv/.test(await page.textContent('#file-status'))) return 'file pick did not confirm';
+  await page.setInputFiles('#file', { name: 'catalog.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('PK') });
+  if (!/Save it as CSV/.test(await page.textContent('#file-status'))) return 'wrong file type was not refused';
+  // A real OS drag can't be driven from here; this is the same drop event carrying a real File.
+  await page.evaluate(([name, text]) => {
+    const data = new DataTransfer();
+    data.items.add(new File([text], name, { type: 'text/tab-separated-values' }));
+    for (const type of ['dragover', 'drop']) document.body.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+  }, ['dropped.tsv', `${FEED_HEADER.replace(/,/g, '\t')}\n${feedRow(1, '$59').replace(/,/g, '\t')}`]);
+  await headlineIs(page, '1 of 1 product needs fixing');
+  return /Read dropped\.tsv/.test(await page.textContent('#file-status')) ? null : 'drag and drop did not confirm';
+}
+
+async function checkFeedHuge(page) {
+  const rows = [];
+  for (let i = 0; i < HUGE_ROWS; i++) rows.push(feedRow(i, i % 2 ? '59.00 USD' : '$59'));
+  const text = `${FEED_HEADER}\n${rows.join('\n')}`;
+  const start = Date.now();
+  await page.evaluate((feed) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', feed);
+    document.getElementById('feed').dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }));
+  }, text);
+  await headlineIs(page, '25,000 of 50,000 products need fixing');
+  const took = Date.now() - start;
+  console.log(`  feed: ${HUGE_ROWS} rows pasted, checked and drawn in ${took}ms`);
+  if (took > HUGE_MAX_MS) return `50,000 rows took ${took}ms`;
+  if ((await page.inputValue('#feed')).length >= text.length / 10) return 'huge feed went into the text box';
+  if (!/every row is checked/.test(await page.textContent('#file-status'))) return 'huge feed did not explain the short text box';
+  if (await page.locator('#table-body tr').count() !== RENDERED_ROWS) return 'huge feed did not cap the table';
+  if (!/first 300 of 50,000/.test(await page.textContent('#cap'))) return 'huge feed did not say it capped the table';
+  await page.check('#only-problems');
+  if (!/first 300 of 25,000/.test(await page.textContent('#cap'))) return 'cap did not follow Show only problems';
+  await page.fill('#feed', `${FEED_HEADER}\n${feedRow(1, '59.00 USD')}`);
+  await headlineIs(page, 'Your 1 product looks clean');
+  await page.setInputFiles('#file', { name: 'huge.csv', mimeType: 'text/csv', buffer: Buffer.from(text) });
+  await headlineIs(page, '25,000 of 50,000 products need fixing');
+  return (await page.inputValue('#feed')).length < text.length / 10 ? null : 'huge file went into the text box';
+}
+
+async function checkFeedBox(page) {
+  const box = await page.evaluate(() => {
+    const b = document.getElementById('table-box');
+    return { wider: b.scrollWidth > b.clientWidth, overflow: getComputedStyle(b).overflowX };
+  });
+  if (!box.wider || box.overflow !== 'auto') return `table does not scroll inside its box: ${JSON.stringify(box)}`;
+  const scroll = await sidewaysScroll(page);
+  return scroll > 0 ? `feed page scrolls sideways by ${scroll}px` : null;
+}
+
+async function checkFeedStates(page) {
+  await page.fill('#feed', 'just,some,words\nand,more,words');
+  await headlineIs(page, 'Nothing to check yet');
+  if (!/No header row/.test(await page.textContent('#notice'))) return 'missing header was not explained';
+  if (await page.isVisible('#results')) return 'table showed with no products';
+  return await page.isDisabled('#copy') ? null : 'Copy stayed live with nothing to copy';
+}
+
+async function checkFeed(page) {
+  return await checkFeedExample(page) || await checkFeedBox(page) || await checkFeedCopy(page)
+    || await checkFeedFiles(page) || await checkFeedHuge(page) || await checkFeedStates(page);
+}
+
+const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed };
 
 (async () => {
   const server = serve().listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({ executablePath: CHROME, headless: true });
+  // Without a GPU process, screenshots keep working when the machine is short of memory.
+  const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--disable-gpu'] });
   const failures = [];
   fs.mkdirSync(path.join(ROOT, 'dist', 'screens'), { recursive: true });
   const targets = Object.entries(TOOL_CHECKS).map(([tool, check]) => [tool, `${base}/tool/${tool}`, check]);
@@ -224,7 +337,8 @@ const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: chec
     for (const vp of VIEWPORTS) {
       const { context, page, errors } = await openPage(browser, url, vp);
       const overflow = await sidewaysScroll(page);
-      await page.screenshot({ path: path.join(ROOT, 'dist', 'screens', `${name}-${vp.width}.png`), fullPage: true });
+      await page.screenshot({ path: path.join(ROOT, 'dist', 'screens', `${name}-${vp.width}.png`), fullPage: true, timeout: SCREENSHOT_MS })
+        .catch((e) => failures.push(`${name} @${vp.width}px screenshot: ${e.message.split('\n')[0]}`));
       const problem = await check(page);
       if (overflow > 0) failures.push(`${name} @${vp.width}px scrolls sideways by ${overflow}px`);
       if (errors.length) failures.push(`${name} @${vp.width}px console errors: ${errors.join(' | ')}`);

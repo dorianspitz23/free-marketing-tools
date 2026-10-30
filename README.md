@@ -41,6 +41,14 @@ ship.
   desktop and mobile shows one ad the pins allow, Shuffle draws another, and a big number counts every
   full ad the pins leave. Rules cite Google's help pages; the 8-headline floor and the ALL-CAPS rule are
   labelled estimates.
+- **Day 5 — Merchant Center feed checker.** Paste a product feed, pick a file or drop one in, and every
+  row Google would reject or limit turns red with the reason in plain English, before you upload it.
+  Reads comma or tab files with quoted cells, columns in any order and the usual aliases (`g:title`,
+  `image link`). Checks required attributes, length limits, price, availability, condition, GTIN check
+  digits, URLs, promotional titles and duplicate ids, with a headline count, the most common problems,
+  Show only problems and Copy problem list. A 50,000-row feed checks in about a second, with the first
+  300 rows drawn. Nothing is uploaded. Rules cite Google's help pages; the ALL-CAPS rule is a labelled
+  estimate.
 - **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A floating Made with Omniscio badge, the
   same one an Omniscio Share carries, and a link preview in the hub's own look that stays neutral for X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.

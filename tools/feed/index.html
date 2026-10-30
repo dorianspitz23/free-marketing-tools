@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merchant Center feed checker</title>
+<meta name="description" content="Drop in a Google Merchant Center product feed and see every row that would get disapproved or limited, with the reason in plain English, before you upload it.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  .tool { max-width: 1080px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-5); }
+  .top { margin-bottom: var(--space-3); }
+  .top h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.02; margin: var(--space-2) 0 var(--space-2); letter-spacing: -.035em; }
+  .top h1 span { color: var(--lime); }
+  .top p { margin: 0; max-width: 56ch; color: var(--muted); }
+
+  .layout { display: grid; gap: var(--space-3); }
+  .layout > * { min-width: 0; }
+  @media (min-width: 900px) { .layout { grid-template-columns: 1fr 1fr; align-items: start; } }
+
+  /* Buttons */
+  .btn { min-height: var(--tap); padding: 0 20px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text); font: 650 .95rem var(--font); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+  .btn:hover { border-color: var(--faint); }
+  .btn.primary { background: var(--lime); border-color: var(--lime); color: var(--lime-ink); }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn[data-done="true"] { background: var(--panel-2); color: var(--lime); border-color: var(--lime); }
+
+  /* Input */
+  .input { padding: var(--space-3); display: grid; gap: var(--space-2); }
+  .input > label { font-weight: 600; }
+  .input .hint { color: var(--faint); font-size: .85rem; margin: -6px 0 0; }
+  .input textarea {
+    width: 100%; min-height: 228px; padding: 12px 14px; resize: vertical;
+    font: 500 .8rem/1.6 var(--mono); color: var(--text); white-space: pre; overflow: auto;
+    background: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    transition: border-color .15s ease;
+  }
+  .input textarea:hover { border-color: var(--faint); }
+  .input textarea:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px var(--lime-soft); }
+  .drop { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; min-height: 72px; padding: var(--space-2); text-align: center; border: 1.5px dashed var(--line-strong); border-radius: var(--radius-sm); color: var(--muted); font-size: .92rem; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+  .drop:hover, .drop[data-over="true"] { border-color: var(--lime); background: var(--lime-soft); color: var(--text); }
+  .drop:focus-within { outline: 2px solid var(--lime); outline-offset: 3px; }
+  .drop b { color: var(--lime); font-weight: 650; }
+  .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .file-status { min-height: 1.3em; margin: 0; color: var(--muted); font-size: .85rem; overflow-wrap: anywhere; }
+  .file-status[data-state="bad"] { color: var(--coral); }
+  .private { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: .88rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); flex: none; }
+
+  /* Result */
+  .hero { padding: var(--space-3); overflow: hidden; position: relative; }
+  .hero::before { content: ""; position: absolute; inset: -40% -20% auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(var(--lime-soft), transparent 70%); pointer-events: none; }
+  .hero[data-state="fix"]::before { background: radial-gradient(var(--coral-soft), transparent 70%); }
+  .hero[data-state="warn"]::before { background: radial-gradient(var(--amber-soft), transparent 70%); }
+  .hero .row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); position: relative; }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 7px 10px; border-radius: 999px; color: var(--lime-ink); background: var(--lime); white-space: nowrap; }
+  .chip[data-state="fix"] { background: var(--coral); color: #1a0705; }
+  .chip[data-state="warn"] { background: var(--amber); color: #1a1205; }
+  .chip[data-state="none"] { background: var(--panel-2); color: var(--muted); }
+  .headline { position: relative; margin: var(--space-3) 0 var(--space-1); font-size: clamp(2.2rem, 6vw, 3.2rem); font-weight: 750; line-height: 1.04; letter-spacing: -.035em; overflow-wrap: anywhere; }
+  .hero[data-state="ok"] .headline { color: var(--lime); }
+  .split { position: relative; margin: 0; color: var(--muted); font-size: .95rem; }
+  .notice { position: relative; margin: var(--space-2) 0 0; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--coral); background: var(--coral-soft); font-size: .9rem; line-height: 1.45; }
+
+  .problems { position: relative; list-style: none; margin: var(--space-3) 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+  .problems li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px var(--space-1); font-size: .9rem; }
+  .problems .dot, .reason .dot { background: var(--coral); }
+  .problems [data-severity="warning"] .dot, .reason[data-severity="warning"] .dot { background: var(--amber); }
+  .problems .n { font: 600 .85rem var(--mono); color: var(--muted); }
+  .problems .bar { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+  .problems .bar span { display: block; height: 100%; border-radius: 4px; background: var(--coral); }
+  .problems [data-severity="warning"] .bar span { background: var(--amber); }
+
+  .actions { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .actions .btn.primary { flex: 1 1 180px; }
+  .status { color: var(--muted); font-size: .9rem; }
+  .status:empty { display: none; }
+  .manual { position: relative; width: 100%; margin-top: var(--space-2); padding: 10px 12px; font: 500 .85rem/1.5 var(--mono); color: var(--text); background: var(--ink); border: 1px solid var(--lime); border-radius: var(--radius-sm); resize: vertical; }
+
+  /* Table */
+  .results { margin-top: var(--space-3); padding: var(--space-3); min-width: 0; }
+  .results-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-1) var(--space-3); margin-bottom: var(--space-2); }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; font-size: .92rem; cursor: pointer; }
+  .toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--lime); }
+  .cap { margin: 0 0 var(--space-2); color: var(--muted); font-size: .88rem; }
+  .table-box { max-height: 620px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--ink); }
+  table { border-collapse: separate; border-spacing: 0; min-width: 100%; font-size: .85rem; }
+  th { position: sticky; top: 0; z-index: 1; padding: 10px 12px; text-align: left; white-space: nowrap; background: var(--panel-2); border-bottom: 1px solid var(--line-strong); font: 600 11px/1.2 var(--mono); letter-spacing: .06em; color: var(--muted); }
+  td { padding: 10px 12px; vertical-align: top; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  td.n { font: 600 .8rem/1.6 var(--mono); color: var(--faint); box-shadow: inset 3px 0 0 transparent; }
+  tr[data-state="fix"] td.n { color: var(--coral); box-shadow: inset 3px 0 0 var(--coral); }
+  tr[data-state="warn"] td.n { color: var(--amber); box-shadow: inset 3px 0 0 var(--amber); }
+  tr[data-state="fix"] td { background: var(--coral-soft); }
+  tr[data-state="warn"] td { background: var(--amber-soft); }
+  td.why { min-width: 260px; max-width: 320px; }
+  .reasons { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; line-height: 1.4; }
+  .reason { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
+  .reason .dot { margin-top: 6px; }
+  .fine { color: var(--faint); }
+  .cell { display: block; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 500 .8rem/1.6 var(--mono); }
+  td[data-severity="error"] .cell { color: var(--coral); font-weight: 650; }
+  td[data-severity="warning"] .cell { color: var(--amber); font-weight: 650; }
+  td[data-severity="error"] { box-shadow: inset 0 0 0 1px var(--coral); }
+  td[data-severity="warning"] { box-shadow: inset 0 0 0 1px var(--amber); }
+
+  .why-note { margin-top: var(--space-3); padding: var(--space-3); color: var(--muted); font-size: .88rem; line-height: 1.6; }
+  .why-note p { margin: 0 0 var(--space-2); }
+  .why-note p:last-child { margin-bottom: 0; }
+  .why-note b { color: var(--text); }
+
+  footer { margin-top: var(--space-4); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main class="tool">
+  <header class="top">
+    <span class="label">Free tool · Day 5 of 10</span>
+    <h1>Merchant Center <span>feed checker</span></h1>
+    <p>Drop in a product feed and every row Google would disapprove or limit turns red, with the reason in plain English, before you upload it.</p>
+  </header>
+
+  <div class="layout">
+    <section class="input panel" aria-label="Your feed">
+      <label for="feed">Your product feed</label>
+      <p class="hint">Paste CSV or tab-separated text with a header row. Columns can be in any order.</p>
+      <textarea id="feed" spellcheck="false" autocomplete="off" wrap="off">id,title,description,link,image_link,availability,price,brand,gtin,condition
+RJ-100,"Northline Storm Shell Rain Jacket, Black, Medium",Seam-sealed 3-layer shell with a stowable hood.,https://example.com/products/rj-100,https://example.com/images/rj-100.jpg,in_stock,89.00 USD,Northline,850123450011,new
+RJ-101,"Northline Storm Shell Rain Jacket, Navy, Large",Seam-sealed 3-layer shell with a stowable hood.,https://example.com/products/rj-101,https://example.com/images/rj-101.jpg,in_stock,89.00 USD,Northline,850123450028,new
+RJ-102,Northline Trail Packable Rain Jacket FREE SHIPPING,Packs into its own pocket for day hikes.,https://example.com/products/rj-102,https://example.com/images/rj-102.jpg,in_stock,64.00 USD,Northline,850123450035,new
+RJ-103,"Northline Trail Packable Rain Jacket, Red, Small",Packs into its own pocket for day hikes.,https://example.com/products/rj-103,https://example.com/images/rj-103.jpg,in_stock,$64.00,Northline,850123450042,new
+RJ-104,"Northline City Trench Rain Jacket, Sand, Medium",Knee-length waterproof trench for the commute.,https://example.com/products/rj-104,https://example.com/images/rj-104.jpg,in_stock,120.00 USD,Northline,850123450050,new
+RJ-105,"Northline Summit Pro Waterproof Breathable Hooded Rain Jacket with Taped Seams for Hiking, Olive, Large",Four-season shell with pit zips.,https://example.com/products/rj-105,https://example.com/images/rj-105.jpg,in_stock,159.00 USD,Northline,850123450066,new
+RJ-106,"Northline Summit Pro Rain Jacket, Slate, Large",Four-season shell with pit zips.,https://example.com/products/rj-106,https://example.com/images/rj-106.jpg,available,159.00 USD,Northline,850123450073,new
+RJ-107,"Northline Kids Puddle Rain Jacket, Yellow, 8Y",Reflective trim and a roomy hood.,https://example.com/products/rj-107,https://example.com/images/rj-107.jpg,preorder,42.00 USD,Northline,850123450080,new
+RJ-108,"Northline Kids Puddle Rain Jacket, Blue, 10Y",Reflective trim and a roomy hood.,https://example.com/products/rj-108,https://example.com/images/rj-108.jpg,out_of_stock,42.00 USD,Northline,850123450097,new</textarea>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain">
+        <span>Drop a file here or <b>choose one</b></span><span>.csv, .tsv or .txt</span>
+      </label>
+      <p class="file-status" id="file-status" aria-live="polite"></p>
+      <p class="private"><span class="dot"></span>Read in your browser. Nothing is uploaded.</p>
+    </section>
+
+    <section class="hero panel" id="hero" data-state="ok" aria-label="Result">
+      <div class="row">
+        <span class="label">Result</span>
+        <span class="chip" id="chip" aria-live="polite"></span>
+      </div>
+      <p class="headline" id="headline" aria-live="polite"></p>
+      <p class="split" id="split"></p>
+      <p class="notice" id="notice" hidden></p>
+      <ul class="problems" id="problems" aria-label="Most common problems"></ul>
+      <div class="actions">
+        <button type="button" class="btn primary" id="copy" title="Copy problem list (Ctrl+Enter)">Copy problem list</button>
+        <span class="status" id="copy-status" aria-live="polite"></span>
+      </div>
+      <textarea class="manual" id="copy-manual" rows="5" readonly hidden aria-label="Problem list, selected for copying"></textarea>
+    </section>
+  </div>
+
+  <section class="results panel" id="results" aria-label="Products">
+    <div class="results-head">
+      <span class="label">Products</span>
+      <label class="toggle"><input type="checkbox" id="only-problems">Show only problems</label>
+    </div>
+    <p class="cap" id="cap" hidden></p>
+    <div class="table-box" id="table-box" tabindex="0" role="region" aria-label="Products table, scrolls sideways">
+      <table><thead><tr id="table-head"></tr></thead><tbody id="table-body"></tbody></table>
+    </div>
+  </section>
+
+  <section class="why-note panel">
+    <p><b>Coral means Google rejects it.</b> A missing required attribute, a wrong format or a duplicate id can get the product disapproved. <b>Amber means it weakens the listing.</b> It can still run, but it may be cut off or read as spam.</p>
+    <p>Rules follow Google’s Merchant Center help pages. Requirements vary by country and category, and the list of promotional phrases and the ALL-CAPS check are estimates, since Google reviews those by judgement.</p>
+  </section>
+
+  <footer>
+    <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="../../docs/orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
+  </footer>
+</main>
+<script src="calc.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const { RENDER_LIMIT, count, checkFeed, headline, problemList } = window.FeedCalc;
+    const COPIED_MS = 1600;
+    const TYPING_PAUSE_MS = 200;
+    const MAX_FILE_BYTES = 100 * 1024 * 1024;
+    const TOP_PROBLEMS = 6;
+    const BIG_FEED_CHARS = 1000000;
+    const PREVIEW_CHARS = 8000;
+    const FEED_FILE = /\.(csv|tsv|txt)$/i;
+    const COPY_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
+    const MESSAGES = {
+      copy: 'Copy problem list', copied: 'Copied ✓',
+      manual: `Your browser blocked copying here. The text is selected: press ${COPY_KEY}.`,
+      empty: 'Paste a feed to check it', nothing: 'Nothing to check yet',
+      chips: { fix: (n) => `${n} rejected`, warn: (n) => `${n} weakened`, ok: 'All clear', none: 'Waiting' },
+      split: (rejected, weakened) => [rejected && `${count(rejected)} would be rejected`, weakened && `${count(weakened)} weakened`].filter(Boolean).join(' · '),
+      clean: 'Nothing Google would reject or limit.',
+      cap: (shown, all) => `Showing the first ${shown} of ${count(all)} rows. The counts and Copy problem list cover all of them.`,
+      noProblems: 'No problems',
+      fileRead: (name) => `Read ${name} in your browser.`,
+      bigFeed: 'This feed is big, so the box shows only the start, but every row is checked. Typing in the box checks just what’s there.',
+      fileType: (name) => `“${name}” isn’t a CSV, TSV or TXT file. Save it as CSV first.`,
+      fileBig: (name) => `“${name}” is over 100 MB, too big to check in a browser tab.`,
+      fileFailed: (name) => `Couldn’t read “${name}”. Try pasting it instead.`
+    };
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    let result;
+    let typingTimer = null;
+    let bigFeed = null; // A big feed stays out of the text box: laying out megabytes there freezes the page.
+
+    function setFeed(text) {
+      bigFeed = text.length > BIG_FEED_CHARS ? text : null;
+      $('feed').value = bigFeed ? text.slice(0, text.lastIndexOf('\n', PREVIEW_CHARS) + 1) : text;
+    }
+
+    // --- Copy: Clipboard API, then the older copy command, then select the text for the person ---
+    async function copyText(text, manualBox) {
+      manualBox.hidden = true;
+      try { await navigator.clipboard.writeText(text); return true; } catch { /* blocked: try the next way */ }
+      const scratch = el('textarea');
+      scratch.value = text;
+      scratch.setAttribute('readonly', '');
+      scratch.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      const focused = document.activeElement;
+      document.body.append(scratch);
+      scratch.focus();
+      scratch.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { /* unsupported: leave false */ }
+      scratch.remove();
+      if (focused) focused.focus();
+      if (copied) return true;
+      manualBox.value = text;
+      manualBox.hidden = false;
+      manualBox.focus();
+      manualBox.select();
+      return false;
+    }
+
+    async function copyProblems() {
+      if ($('copy').disabled) return;
+      const copied = await copyText(problemList(result), $('copy-manual'));
+      $('copy-status').textContent = copied ? '' : MESSAGES.manual;
+      if (!copied) return;
+      $('copy').textContent = MESSAGES.copied;
+      $('copy').dataset.done = 'true';
+      setTimeout(() => { $('copy').textContent = MESSAGES.copy; $('copy').dataset.done = 'false'; }, COPIED_MS);
+    }
+
+    // --- Result panel ---
+    function stateOfFeed() {
+      if (result.total === 0) return 'none';
+      if (result.rejected) return 'fix';
+      return result.weakened ? 'warn' : 'ok';
+    }
+
+    function renderHero() {
+      const state = stateOfFeed();
+      $('hero').dataset.state = state === 'none' ? 'ok' : state;
+      $('chip').dataset.state = state;
+      const chip = MESSAGES.chips[state];
+      $('chip').textContent = typeof chip === 'function' ? chip(state === 'fix' ? result.rejected : result.weakened) : chip;
+      $('headline').textContent = result.total ? headline(result) : result.status === 'empty' ? MESSAGES.empty : MESSAGES.nothing;
+      $('split').textContent = result.bad ? MESSAGES.split(result.rejected, result.weakened) : result.total ? MESSAGES.clean : '';
+      $('notice').hidden = !result.notice;
+      $('notice').textContent = result.notice;
+    }
+
+    function renderProblems() {
+      const top = result.breakdown.slice(0, TOP_PROBLEMS);
+      const most = top.length ? top[0].count : 0;
+      $('problems').hidden = top.length === 0;
+      $('problems').replaceChildren(...top.map(({ label, severity, count: times }) => {
+        const li = el('li');
+        li.dataset.severity = severity;
+        const bar = el('span', 'bar');
+        const fill = el('span');
+        fill.style.width = `${(times / most) * 100}%`;
+        bar.append(fill);
+        li.append(el('span', 'dot'), el('span', '', label), el('span', 'n', count(times)), bar);
+        return li;
+      }));
+    }
+
+    // --- Table: only the first RENDER_LIMIT rows reach the page, so a huge feed stays quick ---
+    function worstByField(issues) {
+      const worst = new Map();
+      for (const { field, severity } of issues) if (field && worst.get(field) !== 'error') worst.set(field, severity);
+      return worst;
+    }
+
+    function reasonsCell(issues) {
+      const td = el('td', 'why');
+      if (issues.length === 0) { td.append(el('span', 'fine', MESSAGES.noProblems)); return td; }
+      const list = el('ul', 'reasons');
+      for (const { severity, reason } of issues) {
+        const li = el('li', 'reason');
+        li.dataset.severity = severity;
+        li.append(el('span', 'dot'), el('span', '', reason));
+        list.append(li);
+      }
+      td.append(list);
+      return td;
+    }
+
+    function tableRow(row) {
+      const tr = el('tr');
+      tr.dataset.state = row.state;
+      tr.append(el('td', 'n', String(row.line)), reasonsCell(row.issues));
+      const worst = worstByField(row.issues);
+      result.columns.forEach((column, i) => {
+        const value = row.cells[i] ?? '';
+        const td = el('td');
+        if (worst.has(column)) td.dataset.severity = worst.get(column);
+        const cell = el('span', 'cell', value);
+        cell.title = value;
+        td.append(cell);
+        tr.append(td);
+      });
+      return tr;
+    }
+
+    function renderTable() {
+      $('results').hidden = result.total === 0;
+      const rows = $('only-problems').checked ? result.rows.filter((r) => r.issues.length > 0) : result.rows;
+      const shown = rows.slice(0, RENDER_LIMIT);
+      $('table-head').replaceChildren(...['Row', 'Problems', ...result.columns].map((name) => el('th', '', name)));
+      $('table-body').replaceChildren(...shown.map(tableRow));
+      $('cap').hidden = rows.length <= RENDER_LIMIT;
+      $('cap').textContent = MESSAGES.cap(shown.length, rows.length);
+    }
+
+    function run() {
+      clearTimeout(typingTimer);
+      result = checkFeed(bigFeed ?? $('feed').value);
+      renderHero();
+      renderProblems();
+      renderTable();
+      $('copy').disabled = result.bad === 0;
+      $('copy-manual').hidden = true;
+      $('copy-status').textContent = '';
+    }
+
+    // --- Files: read here in the browser, never sent anywhere ---
+    function say(text, state) {
+      $('file-status').textContent = text;
+      $('file-status').dataset.state = state;
+    }
+
+    async function loadFile(file) {
+      if (!FEED_FILE.test(file.name)) return say(MESSAGES.fileType(file.name), 'bad');
+      if (file.size > MAX_FILE_BYTES) return say(MESSAGES.fileBig(file.name), 'bad');
+      try {
+        setFeed(await file.text());
+      } catch {
+        return say(MESSAGES.fileFailed(file.name), 'bad');
+      }
+      say(bigFeed ? `${MESSAGES.fileRead(file.name)} ${MESSAGES.bigFeed}` : MESSAGES.fileRead(file.name), 'ok');
+      run();
+    }
+
+    $('feed').addEventListener('paste', (e) => {
+      const text = e.clipboardData.getData('text/plain');
+      if (text.length <= BIG_FEED_CHARS) return;
+      e.preventDefault();
+      setFeed(text);
+      say(MESSAGES.bigFeed, 'ok');
+      run();
+    });
+
+    // A file dropped anywhere is caught: left alone, the browser would open it over this page.
+    const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
+    const showOver = (on) => { $('drop').dataset.over = String(on); };
+
+    window.addEventListener('dragover', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      showOver(true);
+    });
+    window.addEventListener('dragleave', (e) => { if (!e.relatedTarget) showOver(false); });
+    window.addEventListener('drop', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      showOver(false);
+      if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+    });
+
+    $('file').addEventListener('change', () => {
+      const [file] = $('file').files;
+      if (file) loadFile(file);
+      $('file').value = ''; // So picking the same file again still fires.
+    });
+    $('feed').addEventListener('input', () => {
+      clearTimeout(typingTimer);
+      bigFeed = null;
+      say('', 'ok');
+      typingTimer = setTimeout(run, TYPING_PAUSE_MS);
+    });
+    $('only-problems').addEventListener('change', renderTable);
+    $('copy').addEventListener('click', copyProblems);
+    document.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
+      e.preventDefault();
+      copyProblems();
+    });
+    run();
+  })();
+</script>
+</body>
+</html>
